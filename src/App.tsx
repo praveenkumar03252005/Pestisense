@@ -9,6 +9,7 @@ import IdentifyPesticide from './components/features/IdentifyPesticide';
 import { PesticideCatalog } from './components/features/PesticideCatalog';
 import AIChatbot from './components/features/AIChatbot';
 import RegionalMap from './components/features/RegionalMap';
+import AuthModal from './components/layout/AuthModal';
 import { translations } from './lib/translations';
 import { 
   Stethoscope, 
@@ -63,6 +64,12 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLoginSuccess = (token: string, user: any) => {
+    localStorage.setItem('token', token);
+    setToken(token);
+    setUser(user);
   };
 
   const handleLogout = () => {
@@ -173,6 +180,7 @@ export default function App() {
         </div>
       </footer>
       <AIChatbot lang={lang} />
+      <AuthModal lang={lang} onSuccess={handleLoginSuccess} />
     </div>
   );
 }
