@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-heading: "Syne", sans-serif;
+  --font-body: "Noto Sans Telugu", "DM Sans", sans-serif;
+  
+  --color-soil-50: #fdfaf7;
+  --color-soil-100: #f0ddd0;
+  --color-soil-200: #e8d0bd;
+  --color-soil-800: #7a3510;
+  --color-soil-900: #5c270b;
+  
+  --color-green-farm: #2d6a2f;
+  
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+}
+
+@layer base {
+  body {
+    @apply font-body bg-stone-50 text-stone-900;
+  }
+  
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer components {
+  .card-agri {
+    @apply bg-white border border-stone-200 rounded-3xl p-6 shadow-sm;
+  }
+  
+  .tab-agri {
+    @apply flex items-center gap-2 px-6 py-4 text-sm font-bold text-stone-400 border-b-2 border-transparent transition-all;
+  }
+  
+  .tab-agri.active {
+    @apply text-soil-800 border-soil-800;
+  }
+}
+
+/* Scrollbar Hide */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

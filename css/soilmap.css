@@ -1,0 +1,120 @@
+/* ════════════════════════════════════════
+   SOILMAP.CSS — Soil Nutrient Map Tab:
+   Scanning state, Macro/Micro toggle,
+   Field SVG map, Nutrient bars,
+   Ratio cards, Deficiency alerts,
+   Map tooltip
+   ════════════════════════════════════════ */
+
+/* ── LOADING / NO-UPLOAD STATES ── */
+.soil-map-scanning { text-align: center; padding: 40px 20px; display: none; }
+.soil-scan-ring { width: 52px; height: 52px; border: 4px solid var(--soil-light); border-top-color: var(--soil); border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 14px; }
+.soil-scan-text { font-size: 0.9rem; color: var(--text2); font-weight: 500; }
+.soil-scan-sub  { font-size: 0.78rem; color: var(--text3); margin-top: 6px; }
+
+.soil-no-upload { text-align: center; padding: 32px 20px; color: var(--text3); font-size: 0.88rem; background: #faf7f4; border: 2px dashed var(--border); border-radius: 12px; }
+.soil-no-upload .big { font-size: 2.5rem; margin-bottom: 10px; }
+
+/* ── MACRO / MICRO TOGGLE ── */
+.nutrient-toggle { display: flex; background: #f5f0eb; border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 20px; width: fit-content; flex-wrap: wrap; }
+.nt-btn { padding: 8px 20px; border-radius: 8px; border: none; font-size: 0.83rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--text3); transition: all 0.18s; font-family: 'Noto Sans Telugu', 'DM Sans', sans-serif; }
+.nt-btn.active { background: #fff; color: var(--soil-dark); box-shadow: 0 1px 6px rgba(60,30,0,0.1); }
+
+/* ── FIELD MAP ── */
+.field-map-container { position: relative; margin-bottom: 20px; }
+.field-map-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; color: var(--text2); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.field-map-svg-wrap { border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); background: #f0ebe4; }
+.field-map-svg-wrap svg { display: block; width: 100%; height: auto; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text2); }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── NUTRIENT BAR CARDS ── */
+.nutrient-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.nutrient-bar-card { background: #faf7f4; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.nb-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 6px; }
+.nb-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.nb-name .nb-symbol { font-size: 0.7rem; color: var(--text3); font-weight: 400; margin-left: 4px; }
+.nb-value { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 700; }
+.nb-value.low     { color: var(--red); }
+.nb-value.medium  { color: var(--amber); }
+.nb-value.high    { color: var(--green); }
+.nb-value.optimal { color: #1a7fad; }
+
+.nb-bar-track { height: 8px; background: #e8e0d8; border-radius: 99px; overflow: hidden; margin-bottom: 4px; }
+.nb-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.9s ease; }
+.fill-low     { background: linear-gradient(90deg, #e74c3c, #ff6b6b); }
+.fill-medium  { background: linear-gradient(90deg, #f39c12, #f1c40f); }
+.fill-high    { background: linear-gradient(90deg, #27ae60, #2ecc71); }
+.fill-optimal { background: linear-gradient(90deg, #2980b9, #3498db); }
+
+.nb-status { font-size: 0.68rem; color: var(--text3); display: flex; justify-content: space-between; }
+.nb-status .st { font-weight: 500; }
+.st.low     { color: var(--red); }
+.st.medium  { color: var(--amber); }
+.st.high    { color: var(--green); }
+.st.optimal { color: #1a7fad; }
+
+/* ── RATIO SECTION ── */
+.ratio-section { background: linear-gradient(135deg, #e8f5e9, #f0fce8); border: 1.5px solid #b8e0ba; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+.ratio-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--green); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.ratio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.ratio-card { background: #fff; border-radius: 99px; padding: 12px; text-align: center; border: 1px solid #c8e6c9; }
+.ratio-label { font-size: 0.7rem; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+.ratio-value { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--green); }
+.ratio-sub   { font-size: 0.7rem; color: var(--text3); margin-top: 2px; }
+.ratio-status { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.65rem; font-weight: 600; margin-top: 5px; text-transform: uppercase; }
+.rs-good { background: var(--green-light);  color: var(--green); }
+.rs-warn { background: var(--amber-light);  color: var(--amber); }
+.rs-bad  { background: var(--red-light);    color: var(--red); }
+
+/* ── DEFICIENCY ALERTS ── */
+.deficiency-alerts { margin-bottom: 18px; }
+.def-alert { display: flex; gap: 12px; align-items: flex-start; background: #fdecea; border: 1px solid #f5c6c2; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.def-alert.warn { background: #fef3e2;        border-color: #f0c880; }
+.def-alert.ok   { background: var(--green-light); border-color: #c8e6c9; }
+.def-icon { font-size: 1.2rem; flex-shrink: 0; }
+.def-content { flex: 1; }
+.def-nutrient { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+.def-desc  { font-size: 0.8rem;  color: var(--text2); margin-top: 2px; line-height: 1.55; }
+.def-fix   { font-size: 0.78rem; color: var(--green); font-weight: 500; margin-top: 4px; }
+
+/* ── MAP HOVER TOOLTIP ── */
+.map-tooltip {
+  position: absolute;
+  background: #1a1208;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  pointer-events: none;
+  display: none;
+  z-index: 50;
+  min-width: 120px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.map-tooltip strong { display: block; font-family: 'Syne', sans-serif; margin-bottom: 3px; }
+
+@media (max-width: 600px) {
+  .nutrient-grid { grid-template-columns: 1fr; }
+  .nt-btn { padding: 7px 14px; font-size: 0.78rem; }
+}
+
+/* ── Village pin hover ── */
+.village-pin { transition: r 0.15s; }
+.village-pin:hover { stroke-width: 3 !important; }
+
+/* ── Scan history banner ── */
+.scan-history-bar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px;
+}
+.scan-pill {
+  background: var(--green-light); border: 1px solid #b8e0ba;
+  border-radius: 99px; padding: 4px 12px;
+  font-size: 0.75rem; color: var(--green);
+  cursor: pointer; font-weight: 500;
+  transition: background 0.15s;
+}
+.scan-pill:hover { background: #c8e6c9; }
+.scan-pill.active { background: var(--green); color: #fff; }

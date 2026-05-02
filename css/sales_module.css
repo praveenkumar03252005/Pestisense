@@ -1,0 +1,86 @@
+/* ════════════════════════════════════════
+   sales_module.css — Pesticide Catalog & SHC
+   ════════════════════════════════════════ */
+
+/* ── Pesticide Catalog Cards ── */
+.catalog-filters {
+  display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.catalog-filters input, .catalog-filters select {
+  padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 0.9rem;
+}
+
+#pesticide-catalog-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+}
+
+.pesticide-catalog-card {
+  background: #ffffff; border: 1.5px solid #eaeaea; border-radius: 10px;
+  padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.pesticide-catalog-card:hover {
+  transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.05); border-color: #27ae60;
+}
+.pc-cat-badge {
+  display: inline-block; color: white; padding: 4px 10px;
+  border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 10px;
+}
+.pc-trade-name {
+  font-size: 1.1rem; font-weight: 800; color: #1a4a2e; margin-bottom: 2px;
+}
+.pc-active-ing {
+  font-size: 0.85rem; color: #666; margin-bottom: 14px;
+}
+.pc-price-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.pc-price-box {
+  background: #f9f9f9; border-radius: 6px; padding: 10px; text-align: center;
+}
+.pc-price-box.highlight {
+  background: #e8fdf2; border: 1px solid #a3e4c0;
+}
+.pc-lbl { font-size: 0.75rem; color: #888; }
+.pc-val { font-size: 1.1rem; font-weight: 700; color: #333; margin-top: 4px; }
+.pc-price-box.highlight .pc-val { color: #27ae60; }
+
+.pc-detail-row {
+  display: flex; justify-content: space-between; font-size: 0.85rem;
+  color: #555; padding: 4px 0; border-bottom: 1px dashed #eee;
+}
+
+/* ── Soil Health Card (SHC) Analysis ── */
+.nutrient-card-v2 { 
+  background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; text-align: center; 
+}
+.nc-header { 
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px; justify-content: center; 
+}
+.nc-emoji { font-size: 1.2rem; }
+.nc-name { font-size: 0.82rem; font-weight: 600; color: var(--soil-dark); }
+.nc-bar-bg { 
+  background: #f0f0f0; height: 14px; border-radius: 4px; overflow: hidden; margin-bottom: 6px; 
+}
+.nc-bar-fill { height: 100%; transition: width 0.4s ease; }
+.nc-values { 
+  display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px; 
+}
+.nc-current { font-weight: 700; }
+.nc-optimal { color: #999; }
+.nc-status { font-size: 0.78rem; font-weight: 600; }
+.nc-deficit { font-size: 0.72rem; color: #e74c3c; margin-top: 2px; }
+
+.correction-card { 
+  background: white; border-radius: 8px; margin-bottom: 10px; overflow: hidden; border: 1.5px solid #eee; 
+}
+.correction-card.critical { border-color: #e74c3c; }
+.correction-card.low { border-color: #f39c12; }
+.cc-header { 
+  padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; 
+  background: #fafafa; border-bottom: 1px solid #eee; 
+}
+.cc-price-badge { 
+  background: #27ae60; color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; 
+}
+.cc-body { padding: 10px 14px; font-size: 0.88rem; line-height: 1.7; }

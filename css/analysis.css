@@ -1,0 +1,119 @@
+/* ════════════════════════════════════════
+   ANALYSIS.CSS — Loader, Results, Weather,
+   Disease Card, Spray Timeline, Rec Cards,
+   Effect Timeline, Concentration Guide
+   ════════════════════════════════════════ */
+
+/* ── LOADER ── */
+#loader { display: none; text-align: center; padding: 40px 20px; }
+.loader-ring { width: 48px; height: 48px; border: 4px solid var(--soil-light); border-top-color: var(--soil); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+.loader-text { font-size: 0.9rem; color: var(--text2); font-weight: 500; }
+.loader-steps { margin-top: 12px; }
+.loader-step { font-size: 0.8rem; color: var(--text3); padding: 3px 0; transition: color 0.3s; }
+.loader-step.active { color: var(--soil); font-weight: 500; }
+.loader-step.done { color: var(--green-mid); }
+.loader-step.done::before { content: '✓ '; }
+
+/* ── RESULTS WRAPPER ── */
+#results { display: none; }
+.result-header { background: var(--green); color: #fff; border-radius: var(--radius); padding: 22px 28px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+.result-header .big-icon { font-size: 2.2rem; }
+.result-header h2 { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; margin-bottom: 3px; }
+.result-header p { opacity: 0.85; font-size: 0.88rem; }
+
+/* ── WEATHER STRIP ── */
+.weather-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.weather-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; text-align: center; }
+.weather-item .val { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--soil); line-height: 1.2; }
+.weather-item .lbl { font-size: 0.72rem; color: var(--text3); margin-top: 3px; }
+
+/* ── SPRAY TIMING BOX ── */
+.timing-box { background: var(--sky-light); border: 1px solid #b8dff0; border-radius: var(--radius); padding: 18px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: flex-start; }
+.timing-icon { font-size: 1.6rem; flex-shrink: 0; }
+.timing-title { font-family: 'Noto Sans Telugu', 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; color: var(--sky); }
+.timing-text { font-size: 0.88rem; color: var(--text2); }
+
+/* ── DISEASE CARD ── */
+.disease-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+.disease-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.disease-name { font-family: 'Noto Sans Telugu', 'Syne', sans-serif; font-size: 1.15rem; font-weight: 700; }
+.severity-badge { padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+.sev-critical { background: var(--red-light);    color: var(--red); }
+.sev-high     { background: #fff3e0;              color: #e65100; }
+.sev-medium   { background: var(--amber-light);   color: var(--amber); }
+.sev-low      { background: var(--green-light);   color: var(--green); }
+.sev-none     { background: var(--green-light);   color: var(--green); }
+.confidence-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 4px 0 10px; }
+.confidence-fill { height: 100%; background: var(--green-mid); border-radius: 99px; transition: width 0.8s ease; }
+.top-preds { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.pred-pill { background: #f5f0eb; border-radius: 99px; padding: 4px 12px; font-size: 0.78rem; color: var(--text2); }
+.pred-pill.top { background: var(--soil-light); color: var(--soil-dark); font-weight: 500; }
+
+/* ── SPRAY ONCE TIMELINE ── */
+.spray-timeline { background: linear-gradient(135deg, #e8f5e9, #f0fce8); border: 1.5px solid #b8e0ba; border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px; }
+.spray-timeline-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--green); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.timeline-steps { display: flex; flex-direction: column; gap: 10px; }
+.timeline-step { display: flex; gap: 14px; align-items: flex-start; }
+.timeline-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; font-family: 'Syne', sans-serif; border: 2px solid; }
+.td-spray { background: #e8f5e9;       color: var(--green);      border-color: var(--green-mid); }
+.td-wait  { background: #fff3e0;       color: #e65100;            border-color: #ff9800; }
+.td-check { background: var(--sky-light); color: var(--sky);      border-color: var(--sky); }
+.td-next  { background: var(--soil-light); color: var(--soil-dark); border-color: var(--soil); }
+.timeline-content { flex: 1; padding-top: 5px; }
+.timeline-label { font-weight: 600; font-size: 0.88rem; color: var(--text); margin-bottom: 2px; }
+.timeline-desc  { font-size: 0.82rem; color: var(--text2); line-height: 1.6; }
+.timeline-line  { width: 2px; background: #c8e6c9; margin-left: 15px; height: 12px; }
+
+/* ── PESTICIDE REC CARDS ── */
+.rec-list { display: flex; flex-direction: column; gap: 14px; }
+.rec-card { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); transition: border-color 0.18s; }
+.rec-card.top-pick { border-color: var(--green-mid); }
+.rec-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; cursor: pointer; user-select: none; }
+.rec-rank { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem; flex-shrink: 0; }
+.rank-1 { background: var(--green);      color: #fff; }
+.rank-2 { background: var(--soil-light); color: var(--soil-dark); }
+.rank-3 { background: #f5f0eb;            color: var(--text2); }
+.rank-n { background: #f0ede8;            color: var(--text3); }
+.rec-name { flex: 1; font-family: 'Noto Sans Telugu', 'Syne', sans-serif; font-weight: 600; font-size: 0.97rem; line-height: 1.4; }
+.rec-score { font-size: 0.78rem; color: var(--text3); text-align: right; }
+.rec-score strong { display: block; font-family: 'Syne', sans-serif; font-size: 1rem; color: var(--green); font-weight: 700; }
+.rec-body { display: none; padding: 0 20px 20px; border-top: 1px solid var(--border); }
+.rec-body.open { display: block; }
+
+.rec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.rec-detail { background: #faf7f4; border-radius: 9px; padding: 12px 14px; }
+.rec-detail .dl { font-size: 0.72rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+.rec-detail .dv { font-size: 0.92rem; font-weight: 500; color: var(--text); }
+
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+.status-approved { background: var(--green-light); color: var(--green); }
+.status-banned   { background: var(--red-light);   color: var(--red); }
+
+.advisory-box { background: var(--amber-light); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 0.85rem; color: var(--soil-dark); margin-top: 10px; }
+
+/* ── EFFECT TIMELINE (inside rec card) ── */
+.effect-timeline { background: #f0fce8; border: 1px solid #c8e6c9; border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+.et-title { font-size: 0.78rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.et-steps { display: flex; gap: 0; align-items: stretch; position: relative; }
+.et-step { flex: 1; text-align: center; position: relative; }
+.et-step::after { content: '→'; position: absolute; right: -8px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: #aaa; z-index: 1; }
+.et-step:last-child::after { display: none; }
+.et-icon  { font-size: 1.2rem; margin-bottom: 4px; }
+.et-day   { font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700; color: var(--green); }
+.et-label { font-size: 0.7rem; color: var(--text2); line-height: 1.4; margin-top: 2px; }
+.patience-note { margin-top: 10px; font-size: 0.8rem; color: #2d6a2f; background: #dcf0dc; border-radius: 8px; padding: 8px 12px; line-height: 1.5; border-left: 3px solid var(--green-mid); }
+
+/* ── CONCENTRATION GUIDE (inside rec card) ── */
+.conc-guide { background: var(--sky-light); border: 1px solid #b8dff0; border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+.cg-title { font-size: 0.78rem; font-weight: 700; color: var(--sky); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+.cg-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(26,127,173,0.1); font-size: 0.84rem; }
+.cg-row:last-child { border-bottom: none; }
+.cg-row .cg-label { color: var(--text2); }
+.cg-row .cg-val   { font-weight: 600; color: var(--sky); font-family: 'Syne', sans-serif; }
+.cg-note { font-size: 0.75rem; color: var(--text3); margin-top: 8px; font-style: italic; }
+
+@media (max-width: 600px) {
+  .rec-grid { grid-template-columns: 1fr; }
+  .et-steps { flex-direction: column; gap: 8px; }
+  .et-step::after { content: '↓'; right: auto; left: 50%; top: auto; bottom: -10px; }
+}

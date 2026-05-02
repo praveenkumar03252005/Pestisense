@@ -1,0 +1,108 @@
+/* ════════════════════════════════════════
+   reviews.css — Pesticide Review System
+   ════════════════════════════════════════ */
+
+.review-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pesticide-selector select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 1rem;
+  background: #f9f9f9;
+  margin-top: 8px;
+}
+
+.review-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.review-author {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.review-date {
+  font-size: 0.8rem;
+  color: var(--text3);
+}
+
+.review-stars {
+  color: #f39c12;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.review-text {
+  font-size: 0.9rem;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+.add-review-box {
+  background: var(--amber-light);
+  border: 1px dashed #d4b475;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 10px;
+}
+
+.add-review-box input, 
+.add-review-box textarea, 
+.add-review-box select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+}
+
+.add-review-box textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.btn-submit-review {
+  background: var(--green);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+
+.btn-submit-review:hover {
+  opacity: 0.9;
+}
+
+.no-reviews {
+  text-align: center;
+  padding: 20px;
+  color: var(--text3);
+  font-style: italic;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
