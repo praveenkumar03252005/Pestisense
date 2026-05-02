@@ -2,15 +2,16 @@ import React, { useState, useRef } from 'react';
 import { Camera, MapPin, Stethoscope, FlaskConical, CheckCircle, Loader2, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
-import { DEMO_RECOMMENDATIONS, FALLBACK_PESTICIDES } from '../../lib/agriData';
+import { analyzeLeaf } from '../../services/geminiService';
 
 interface AnalysisProps {
   lang: 'te' | 'en';
   token: string | null;
   onResult: (result: any) => void;
+  onSoilReport: () => void;
 }
 
-export default function Analysis({ lang, token, onResult }: AnalysisProps) {
+export default function Analysis({ lang, token, onResult, onSoilReport }: AnalysisProps) {
   const t = translations[lang];
   const [analyzing, setAnalyzing] = useState(false);
   const [form, setForm] = useState({ area: '', crop_stage: 'flowering' });
@@ -23,47 +24,76 @@ export default function Analysis({ lang, token, onResult }: AnalysisProps) {
     if (!leafFile) return;
     setAnalyzing(true);
     
+    if (soilFile) {
+      onSoilReport();
+    }
+    
     try {
-      const simulations: Record<string, any> = {
-        'Early Blight': {
-          disease_name: lang === 'te' ? 'ఆకు మాడ తెగులు (Early Blight)' : 'Early Blight',
-          confidence_pct: 84.5,
-          severity: lang === 'te' ? 'మధ్యస్థం (Medium)' : 'Medium',
-          recommendations: DEMO_RECOMMENDATIONS,
-          results_text: lang === 'te' ? 'టొమాటో ఆకులపై ఎర్లీ బ్లైట్ లక్షణాలు గుర్తించబడ్డాయి.' : 'Detected symptoms of Early Blight on tomato leaves.'
-        }
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          resolve(base64String);
+        };
+      });
+      reader.readAsDataURL(leafFile);
+      const base64Image = await base64Promise;
+
+      const aiResult = await analyzeLeaf(base64Image, leafFile.type, form.area, form.crop_stage);
+      
+      // Prepare final result with weather mock (matching backend behavior)
+      const weather = {
+        temp: 29 + Math.floor(Math.random() * 5),
+        humidity: 60 + Math.floor(Math.random() * 10),
+        rainChance: Math.floor(Math.random() * 30),
+        soilMoisture: 40 + Math.floor(Math.random() * 20)
       };
 
-      const simulatedResult = simulations['Early Blight'];
+      const finalResult = {
+        location: form.area,
+        growthStage: form.crop_stage,
+        is_tomato: aiResult.is_tomato,
+        identified_as: aiResult.identified_as,
+        diagnosis: {
+          disease: aiResult.disease,
+          severity: aiResult.severity,
+          confidence: aiResult.confidence
+        },
+        weather,
+        sprayTiming: aiResult.sprayTiming || {
+          en: "Safe to spray today. Ideal window: 4:00 PM – 6:30 PM.",
+          te: "ఈరోజు పిచికారీ చేయడానికి అనువైన సమయం. సాయంత్రం 4:00 - 6:30 గంటల మధ్య పిచికారీ చేయండి."
+        },
+        recommendations: aiResult.recommendations,
+        analyzedAt: new Date().toISOString()
+      };
 
-      const formData = new FormData();
-      formData.append('location', form.area);
-      formData.append('growthStage', form.crop_stage);
-      formData.append('leaf_image', leafFile);
-      if (soilFile) formData.append('soil_report', soilFile);
-
-      const res = await fetch('/api/analysis', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      });
-      
-      const data = await res.json();
-      if (res.ok) {
-        onResult(data.record || simulatedResult);
-      } else {
-        // Fallback for demo
-        onResult(simulatedResult);
+      if (!aiResult.is_tomato) {
+        // We still pass it to Result so it can show a proper "Invalid Image" page
+        onResult({ ...finalResult, status: 'invalid' });
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      // Fallback for demo
-      onResult({
-        disease_name: 'Early Blight',
-        confidence_pct: 84.5,
-        severity: 'Medium',
-        recommendations: DEMO_RECOMMENDATIONS
-      });
+
+      // Save to history if logged in
+      if (token) {
+        try {
+          await fetch('/api/analysis/save', {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(finalResult)
+          });
+        } catch (saveErr) {
+          console.warn("Failed to save to history, but analysis succeeded:", saveErr);
+        }
+      }
+
+      onResult(finalResult);
+    } catch (err: any) {
+      console.error('Analysis Error:', err);
+      alert(err.message || 'Connection error. Please try again.');
     } finally {
       setAnalyzing(false);
     }

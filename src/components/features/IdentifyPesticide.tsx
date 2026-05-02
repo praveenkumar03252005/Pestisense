@@ -3,6 +3,7 @@ import { Search, Camera, AlertCircle, CheckCircle, Loader2, Info } from 'lucide-
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
 import { FALLBACK_PESTICIDES } from '../../lib/agriData';
+import { identifyPesticide } from '../../services/geminiService';
 
 interface IdentifyPesticideProps {
   lang: 'te' | 'en';
@@ -20,20 +21,17 @@ export default function IdentifyPesticide({ lang }: IdentifyPesticideProps) {
     setLoading(true);
     
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch('/api/identify-pesticide', {
-        method: 'POST',
-        body: formData
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          resolve(base64String);
+        };
       });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to identify pesticide.");
-      }
-
-      const data = await response.json();
+      const data = await identifyPesticide(base64Image, file.type);
       
       // Enrich with local database info if possible
       const matched = FALLBACK_PESTICIDES.find(p => 

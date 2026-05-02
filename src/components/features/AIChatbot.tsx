@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Loader2, User, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
+import { chatWithGemini } from '../../services/geminiService';
 
 interface AIChatbotProps {
   lang: 'te' | 'en';
@@ -26,29 +27,16 @@ export default function AIChatbot({ lang }: AIChatbotProps) {
 
     const userMsg = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    const newMessages = [...messages, { role: 'user' as const, text: userMsg }];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', text: userMsg }],
-          lang
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Service temporarily unavailable.");
-      }
-
-      const data = await response.json();
-      setMessages(prev => [...prev, { role: 'bot', text: data.text }]);
+      const text = await chatWithGemini(newMessages, lang);
+      setMessages(prev => [...prev, { role: 'bot', text: text || "Sorry, I couldn't process that." }]);
     } catch (err: any) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'bot', text: err.message || "Service temporarily unavailable. Please try again later." }]);
+      setMessages(prev => [...prev, { role: 'bot', text: err.message || "Something went wrong. Please try again." }]);
     } finally {
       setLoading(false);
     }

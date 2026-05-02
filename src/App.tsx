@@ -33,6 +33,7 @@ export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
   const [lastResult, setLastResult] = useState<any>(null);
+  const [hasSoilReport, setHasSoilReport] = useState(false);
 
   const t = translations[lang];
 
@@ -84,7 +85,12 @@ export default function App() {
         return lastResult ? (
           <AnalysisResult lang={lang} result={lastResult} onReset={() => setLastResult(null)} />
         ) : (
-          <Analysis lang={lang} token={token} onResult={(res) => setLastResult(res)} />
+          <Analysis 
+            lang={lang} 
+            token={token} 
+            onResult={(res) => setLastResult(res)} 
+            onSoilReport={() => setHasSoilReport(true)}
+          />
         );
       case 'weather':
         return <WeatherForecast />;
@@ -95,8 +101,9 @@ export default function App() {
       case 'ocr':
         return <IdentifyPesticide lang={lang} />;
       case 'soilmap':
+        return <RegionalMap lang={lang} initialMode="soil" hasReport={hasSoilReport} />;
       case 'hotspot':
-        return <RegionalMap lang={lang} />;
+        return <RegionalMap lang={lang} initialMode="disease" />;
       default:
         return (
           <div className="card-agri text-center py-20 space-y-4">

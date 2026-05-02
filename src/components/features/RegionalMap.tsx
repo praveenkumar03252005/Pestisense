@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Info, ArrowUpRight, ShieldCheck, AlertCircle } from 'lucide-react';
-import { DISEASE_PREVALENCE } from '../../lib/agriData';
+import { MapPin, Info, ArrowUpRight, ShieldCheck, AlertCircle, FlaskConical as Flask, Activity, Beaker, Calendar, CheckCircle } from 'lucide-react';
+import { DISEASE_PREVALENCE, getMandalNutrients } from '../../lib/agriData';
 
 interface MandalProps {
   id: string;
@@ -12,9 +12,11 @@ interface MandalProps {
   hoverColor: string;
 }
 
-export default function RegionalMap({ lang }: { lang: 'te' | 'en' }) {
+export default function RegionalMap({ lang, initialMode = 'disease', hasReport = false }: { lang: 'te' | 'en', initialMode?: 'disease' | 'soil', hasReport?: boolean }) {
   const [hoveredMandal, setHoveredMandal] = useState<MandalProps | null>(null);
   const [selectedMandal, setSelectedMandal] = useState<MandalProps | null>(null);
+  const [mapMode, setMapMode] = useState<'disease' | 'soil'>(initialMode);
+  const [nutrientTab, setNutrientTab] = useState<'macro' | 'micro' | 'ratios'>('macro');
 
   const mandals: MandalProps[] = [
     // --- RAYACHOTI HUB (Yellow) ---
@@ -66,6 +68,20 @@ export default function RegionalMap({ lang }: { lang: 'te' | 'en' }) {
             <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mt-1">
               {lang === 'te' ? 'పూర్తి ప్రాంతీయ మ్యాప్' : 'Full Regional Mandal Breakdown'}
             </p>
+          </div>
+          <div className="flex bg-stone-800 p-1 rounded-xl">
+             <button 
+               onClick={() => setMapMode('disease')}
+               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mapMode === 'disease' ? 'bg-amber-500 text-white shadow-lg' : 'text-stone-400 hover:text-white'}`}
+             >
+               {lang === 'te' ? 'వ్యాధి వ్యాప్తి' : 'Disease Prevalence'}
+             </button>
+             <button 
+               onClick={() => setMapMode('soil')}
+               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mapMode === 'soil' ? 'bg-green-600 text-white shadow-lg' : 'text-stone-400 hover:text-white'}`}
+             >
+               {lang === 'te' ? 'నేల ఆరోగ్యం' : 'Soil Health'}
+             </button>
           </div>
           <div className="flex gap-4">
              <div className="flex items-center gap-2">
@@ -212,14 +228,14 @@ export default function RegionalMap({ lang }: { lang: 'te' | 'en' }) {
             </motion.div>
 
             {/* Disease Prevalence for Selected Mandal */}
-            {DISEASE_PREVALENCE[selectedMandal.name] && (
+            {mapMode === 'disease' && DISEASE_PREVALENCE[selectedMandal.name] && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
               >
                 {Object.entries(DISEASE_PREVALENCE[selectedMandal.name]).map(([disease, prevalence]) => (
-                  <div key={disease} className="card-agri p-4 bg-white border border-stone-100 flex flex-col justify-center">
+                  <div key={disease} className="card-agri p-4 bg-white border border-stone-100 flex flex-col justify-center shadow-sm">
                     <div className="flex justify-between items-center mb-2">
                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-wider">{disease}</span>
                        {prevalence > 60 ? <AlertCircle className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-500" />}
@@ -237,6 +253,169 @@ export default function RegionalMap({ lang }: { lang: 'te' | 'en' }) {
                     </div>
                   </div>
                 ))}
+              </motion.div>
+            )}
+
+            {/* Soil Health Card Mode */}
+            {mapMode === 'soil' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-2 text-stone-500">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                       {lang === 'te' ? 'స్కానింగ్ తేదీ' : 'Scanned'}: 10/4/2026
+                    </span>
+                    <span className="mx-2 text-stone-300">|</span>
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-xs font-bold tracking-tight">13.5504°N, 78.5012°E</span>
+                    {hasReport && selectedMandal.name === 'Madanapalle' && (
+                      <>
+                        <span className="mx-2 text-stone-300">|</span>
+                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full ring-1 ring-green-600/20">
+                          <CheckCircle className="w-3 h-3" />
+                          <span className="text-[9px] font-black uppercase">Report Active</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="flex bg-stone-100 p-1 rounded-2xl w-full sm:w-auto">
+                    {[
+                      { id: 'macro', label: lang === 'te' ? 'మాక్రో పోషకాలు' : 'Macro Nutrients' },
+                      { id: 'micro', label: lang === 'te' ? 'సూక్ష్మ పోషకాలు' : 'Micro Nutrients' },
+                      { id: 'ratios', label: lang === 'te' ? 'నిష్పత్తులు' : 'Ratios' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setNutrientTab(tab.id as any)}
+                        className={`flex-1 sm:px-6 py-2.5 rounded-xl text-xs font-black transition-all ${nutrientTab === tab.id ? 'bg-white text-orange-700 shadow-md' : 'text-stone-400 hover:text-stone-600'}`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-orange-50/30 p-6 rounded-[2rem] border border-orange-100">
+                   <h5 className="text-lg font-black text-stone-900 mb-6 flex items-center gap-2">
+                     <div className="w-2 h-6 bg-orange-600 rounded-full"></div>
+                     {lang === 'te' 
+                        ? (nutrientTab === 'macro' ? 'పొలం మాక్రో పోషక పంపిణీ మ్యాప్' : nutrientTab === 'micro' ? 'పొలం మైక్రో పోషక పంపిణీ మ్యాప్' : 'నేల పోషక నిష్పత్తులు') 
+                        : (nutrientTab === 'macro' ? 'Field Macro Nutrient Distribution Map' : nutrientTab === 'micro' ? 'Field Micro Nutrient Distribution Map' : 'Soil Nutrient Ratios & Balances')}
+                   </h5>
+                   
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {nutrientTab === 'macro' && [
+                        { title: 'Nitrogen', code: 'N', value: getMandalNutrients(selectedMandal.name).nitrogen, unit: 'kg/ha', optimal: '150-280', color: 'bg-red-500' },
+                        { title: 'Phosphorus', code: 'P₂O₅', value: getMandalNutrients(selectedMandal.name).phosphorus, unit: 'kg/ha', optimal: '20-45', color: 'bg-red-400' },
+                        { title: 'Potassium', code: 'K₂O', value: getMandalNutrients(selectedMandal.name).potassium, unit: 'kg/ha', optimal: '150-300', color: 'bg-red-500' },
+                        { title: 'Soil pH', code: 'pH', value: getMandalNutrients(selectedMandal.name).ph, unit: '', optimal: '6-7.5', color: 'bg-amber-500', isPH: true },
+                      ].map((nut, idx) => (
+                        <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <div className="flex justify-between items-start mb-4">
+                             <div>
+                               <span className="text-base font-black text-stone-900">{nut.title}</span>
+                               <span className="ml-1 text-[10px] font-bold text-stone-400 uppercase">{nut.code}</span>
+                             </div>
+                             <div className="text-right">
+                               <span className="text-2xl font-black text-orange-700">{nut.value.toFixed(1)}</span>
+                               <span className="ml-1 text-[10px] font-black text-stone-400 uppercase">{nut.unit}</span>
+                             </div>
+                           </div>
+                           
+                           <div className="space-y-2">
+                              <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${Math.min(100, (nut.value / (parseFloat(nut.optimal.split('-')[1]) || 10)) * 100)}%` }}
+                                  className={`h-full ${nut.color}`}
+                                />
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+                                <span className={nut.value < parseFloat(nut.optimal.split('-')[0]) ? 'text-red-500' : 'text-stone-400'}>
+                                  {nut.isPH ? (nut.value < 6 ? 'Acidic' : nut.value > 7.5 ? 'Alkaline' : 'Normal') : (nut.value < parseFloat(nut.optimal.split('-')[0]) ? 'Low' : 'Adequate')}
+                                </span>
+                                <span className="text-stone-400">Optimal: {nut.optimal} {nut.unit}</span>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+
+                      {nutrientTab === 'micro' && [
+                        { title: 'Iron', code: 'Fe', value: getMandalNutrients(selectedMandal.name).iron, unit: 'ppm', optimal: '4.5-8', color: 'bg-stone-500' },
+                        { title: 'Zinc', code: 'Zn', value: getMandalNutrients(selectedMandal.name).zinc, unit: 'ppm', optimal: '0.6-1.5', color: 'bg-stone-400' },
+                        { title: 'Manganese', code: 'Mn', value: getMandalNutrients(selectedMandal.name).manganese, unit: 'ppm', optimal: '2.0-5', color: 'bg-stone-500' },
+                        { title: 'Copper', code: 'Cu', value: getMandalNutrients(selectedMandal.name).copper, unit: 'ppm', optimal: '0.2-1.0', color: 'bg-stone-400' },
+                      ].map((nut, idx) => (
+                        <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <div className="flex justify-between items-start mb-4">
+                             <div>
+                               <span className="text-base font-black text-stone-900">{nut.title}</span>
+                               <span className="ml-1 text-[10px] font-bold text-stone-400 uppercase">{nut.code}</span>
+                             </div>
+                             <div className="text-right">
+                               <span className="text-2xl font-black text-stone-900">{nut.value.toFixed(2)}</span>
+                               <span className="ml-1 text-[10px] font-black text-stone-400 uppercase">{nut.unit}</span>
+                             </div>
+                           </div>
+                           
+                           <div className="space-y-2">
+                              <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${Math.min(100, (nut.value / (parseFloat(nut.optimal.split('-')[1]) || 5)) * 100)}%` }}
+                                  className={`h-full ${nut.color}`}
+                                />
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+                                <span className={nut.value < parseFloat(nut.optimal.split('-')[0]) ? 'text-amber-600' : 'text-green-600'}>
+                                  {nut.value < parseFloat(nut.optimal.split('-')[0]) ? 'Slightly Deficient' : 'Sufficient'}
+                                </span>
+                                <span className="text-stone-400">Optimal: {nut.optimal} {nut.unit}</span>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+
+                      {nutrientTab === 'ratios' && [
+                        { title: 'N : K Ratio', code: 'Nitrogen/Potassium', value: getMandalNutrients(selectedMandal.name).nitrogen / getMandalNutrients(selectedMandal.name).potassium, unit: ': 1', optimal: '0.5:1', color: 'bg-indigo-500' },
+                        { title: 'Ca : Mg Ratio', code: 'Calcium/Magnesium', value: getMandalNutrients(selectedMandal.name).calcium / getMandalNutrients(selectedMandal.name).magnesium, unit: ': 1', optimal: '3:1', color: 'bg-indigo-400' },
+                      ].map((nut, idx) => (
+                        <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <div className="flex justify-between items-start mb-4">
+                             <div>
+                               <span className="text-base font-black text-stone-900">{nut.title}</span>
+                               <span className="ml-1 text-[8px] font-bold text-stone-400 uppercase block">{nut.code}</span>
+                             </div>
+                             <div className="text-right">
+                               <span className="text-2xl font-black text-indigo-700">{nut.value.toFixed(2)}</span>
+                               <span className="ml-1 text-[10px] font-black text-stone-400 uppercase">{nut.unit}</span>
+                             </div>
+                           </div>
+                           
+                           <div className="space-y-2">
+                              <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${Math.min(100, (nut.value / (parseFloat(nut.optimal) * 2)) * 100)}%` }}
+                                  className={`h-full ${nut.color}`}
+                                />
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+                                <span className={Math.abs(nut.value - parseFloat(nut.optimal)) > 0.5 ? 'text-amber-600' : 'text-green-600'}>
+                                  {Math.abs(nut.value - parseFloat(nut.optimal)) > 0.5 ? 'Imbalanced' : 'Balanced'}
+                                </span>
+                                <span className="text-stone-400">Target: {nut.optimal}</span>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
               </motion.div>
             )}
           </div>

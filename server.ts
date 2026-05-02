@@ -3,7 +3,6 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { MongoClient, ObjectId } from 'mongodb';
 import { v2 as cloudinary } from 'cloudinary';
-import Groq from "groq-sdk";
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
@@ -16,7 +15,6 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-let groq: any;
 
 app.use(cors());
 app.use(express.json());
@@ -60,17 +58,10 @@ async function startServer() {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 
-  // Initialize Groq lazily or safely
-  const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    console.warn('WARNING: GROQ_API_KEY or VITE_GROQ_API_KEY is not defined. AI features will be unavailable.');
-  } else {
-    try {
-      groq = new Groq({ apiKey: GROQ_API_KEY });
-      console.log('Groq SDK initialized successfully');
-    } catch (err: any) {
-      console.error('Failed to initialize Groq SDK:', err.message);
-    }
+  // Ensure uploads directory exists
+  if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+    console.log('Created uploads/ directory');
   }
 
   const upload = multer({ dest: 'uploads/' });
@@ -79,9 +70,8 @@ async function startServer() {
 
   // Middleware to log all requests
   app.use((req, res, next) => {
-    // Log only if it's not a noise request (like vite hmr which should be disabled anyway)
     if (!req.url.includes('vite') && !req.url.includes('node_modules')) {
-      console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.originalUrl}`);
+      console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
     }
     next();
   });
@@ -98,9 +88,9 @@ async function startServer() {
   const authenticateToken = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing token' });
     jwt.verify(token, process.env.JWT_SECRET || 'secret', (err: any, user: any) => {
-      if (err) return res.sendStatus(403);
+      if (err) return res.status(403).json({ error: 'Forbidden: Invalid token' });
       req.user = user;
       next();
     });
@@ -120,98 +110,7 @@ async function startServer() {
   // --- API ROUTES ---
 
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
-  });
-
-  // --- GROQ AI ROUTES ---
-  app.post('/api/chat', async (req, res) => {
-    try {
-      const { messages, lang } = req.body;
-      const apiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
-      
-      if (!apiKey || !groq) {
-        return res.status(503).json({ error: "GROQ AI Service is not configured or failed to initialize. Please check GROQ_API_KEY in the Settings menu." });
-      }
-
-      const systemPrompt = `You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
-      Answer the farmer's questions in ${lang === 'te' ? 'Telugu' : 'English'}. 
-      Provide scientific, practical, and safe advice. 
-      The area is famous for the Madanapalle Tomato Market.
-      If recommending pesticides, strictly mention that they should be CIBRC (Central Insecticides Board & Registration Committee) approved. 
-      Keep answers concise, technical yet simple for a farmer.`;
-
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.map((m: any) => ({ 
-            role: m.role === 'user' ? 'user' : 'assistant', 
-            content: m.text 
-          }))
-        ],
-        model: "llama-3.3-70b-versatile",
-      });
-
-      const botText = chatCompletion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
-      res.json({ text: botText });
-    } catch (err: any) {
-      console.error('Groq Chat Error:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/identify-pesticide', upload.single('image'), async (req: any, res) => {
-    try {
-      const file = req.file;
-      const apiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
-
-      if (!apiKey || !groq) {
-        return res.status(503).json({ error: "GROQ AI Service is not configured or failed to initialize. Please check GROQ_API_KEY in the Settings menu." });
-      }
-
-      if (!file) {
-        return res.status(400).json({ error: "No image file provided." });
-      }
-
-      const base64Image = fs.readFileSync(file.path, { encoding: 'base64' });
-
-      const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
-      Extract these specific fields:
-      1. Product Name
-      2. Active Ingredient
-      3. Formulation (e.g. 75% WP, 10% EC, 23% SC)
-      4. Usage for Tomato crops (if mentioned or recommended)
-      5. Safety Warning
-      
-      Respond STRICTLY in JSON format: { "name": string, "active": string, "form": string, "usage": string, "warning": string }`;
-
-      const response = await groq.chat.completions.create({
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${file.mimetype};base64,${base64Image}`,
-                },
-              },
-            ],
-          },
-        ],
-        model: "llama-3.2-11b-vision-preview",
-        response_format: { type: "json_object" }
-      });
-
-      // Cleanup local file
-      fs.unlinkSync(file.path);
-
-      const content = response.choices[0]?.message?.content || '{}';
-      res.json(JSON.parse(content));
-    } catch (err: any) {
-      console.error('Groq Vision Error:', err);
-      res.status(500).json({ error: err.message });
-    }
+    res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
   });
 
   // --- SOIL DATA ---
@@ -487,111 +386,27 @@ async function startServer() {
 
   app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
     const user = await db.collection('users').findOne({ _id: new ObjectId(req.user.id) });
-    if (!user) return res.sendStatus(404);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ id: user._id, name: user.name, email: user.email });
   });
 
-  app.post('/api/analysis', optionalAuth, upload.fields([
-    { name: 'leaf_image', maxCount: 1 },
-    { name: 'soil_report', maxCount: 1 }
-  ]), async (req: any, res) => {
-    const userId = req.user ? new ObjectId(req.user.id) : null;
-
+  app.post('/api/analysis/save', authenticateToken, async (req: any, res) => {
+    const userId = new ObjectId(req.user.id);
     try {
-      const { location, growthStage } = req.body;
-      const files = req.files;
-      
-      // Simulated AI detection
-      const diagnosis = {
-        disease: {
-          en: "Early Blight",
-          te: "తొలి దశ ఎండు తెగులు"
-        },
-        severity: "Medium",
-        confidence: 92
-      };
-
-      const weather = {
-        temp: 29,
-        humidity: 62,
-        rainChance: 15,
-        soilMoisture: 48
-      };
-
-      const sprayTiming = {
-        en: "Safe to spray today. Ideal window: 4:00 PM – 6:30 PM.",
-        te: "ఈరోజు పిచికారీ చేయడానికి అనువైన సమయం. సాయంత్రం 4:00 - 6:30 గంటల మధ్య పిచికారీ చేయండి."
-      };
-
-      const recommendations = [
-        {
-          brand: "Nativo 75 WG",
-          activeIngredient: "Tebuconazole + Trifloxystrobin",
-          score: 95,
-          legality: "Approved",
-          costPerAcre: 850,
-          repeatInterval: "12-15 Days",
-          concentration: "75% WG",
-          dose_acre: "100g",
-          dose_15L: "10g",
-          reason: {
-            en: "Strongest systemic and contact protection. Best for currently high humidity.",
-            te: "అత్యుత్తమ రక్షణను ఇస్తుంది. ప్రస్తుత వాతావరణానికి ఇది సరిగ్గా సరిపోతుంది."
-          }
-        },
-        {
-          brand: "Amistar Top",
-          activeIngredient: "Azoxystrobin + Difenoconazole",
-          score: 88,
-          legality: "Approved",
-          costPerAcre: 1100,
-          repeatInterval: "14 Days",
-          concentration: "32.5% SC",
-          dose_acre: "200ml",
-          dose_15L: "20ml",
-          reason: {
-            en: "Good curative action, but slightly more expensive.",
-            te: "ఇది వ్యాధిని నిరోధించడంలో బాగా పనిచేస్తుంది, కానీ ధర కొంచెం ఎక్కువ."
-          }
-        },
-        {
-          brand: "Bavistin",
-          activeIngredient: "Carbendazim 50% WP",
-          score: 72,
-          legality: "Approved",
-          costPerAcre: 350,
-          repeatInterval: "10 Days",
-          concentration: "50% WP",
-          dose_acre: "250g",
-          dose_15L: "25g",
-          reason: {
-            en: "Budget friendly, but less effective against resistant strains.",
-            te: "తక్కువ ధరలో వస్తుంది, కానీ తీవ్రత ఎక్కువగా ఉంటే తక్కువ పని చేస్తుంది."
-          }
-        }
-      ];
-
-      const analysisResult = {
-        location,
-        growthStage,
-        diagnosis,
-        weather,
-        sprayTiming,
-        recommendations,
-        analyzedAt: new Date()
-      };
-
-      if (userId) {
-        await db.collection('analysis_history').insertOne({
+      if (db) {
+        const record = {
           userId,
-          ...analysisResult
-        });
+          ...req.body,
+          analyzedAt: new Date(req.body.analyzedAt || new Date())
+        };
+        await db.collection('analysis_history').insertOne(record);
+        res.json({ success: true });
+      } else {
+        res.status(503).json({ error: "Database not connected" });
       }
-
-      res.json(analysisResult);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Analysis failed' });
+    } catch (err: any) {
+      console.error('Save Analysis Error:', err);
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -619,7 +434,20 @@ async function startServer() {
 
   // Handle API 404s
   app.all('/api/*', (req, res) => {
-    res.status(404).json({ error: `API route not found: ${req.originalUrl}` });
+    res.status(404).json({ error: `API route not found: ${req.url}` });
+  });
+
+  // Final catch-all for any errors that slipped through
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (req.path.startsWith('/api/')) {
+      console.error('FINAL API ERROR:', err);
+      return res.status(500).json({ 
+        error: 'Critical API Error', 
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
+    }
+    next(err);
   });
 
   // Static files and fallbacks

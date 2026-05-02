@@ -117,6 +117,36 @@ export const DISEASE_PREVALENCE: Record<string, Record<string, number>> = {
   "Kuppam": { "Early Blight": 50, "Late Blight": 35, "TYLCV": 25 }
 };
 
+export const SOIL_NUTRIENTS: Record<string, any> = {
+  "Madanapalle": { 
+    nitrogen: 48, phosphorus: 11, potassium: 82, ph: 5.9, 
+    iron: 4.2, zinc: 0.8, manganese: 2.5, copper: 0.4,
+    organic_carbon: 0.35, ec: 0.25, calcium: 12.5, magnesium: 4.2
+  },
+  "Rayachoti": { 
+    nitrogen: 52, phosphorus: 14, potassium: 95, ph: 6.2,
+    iron: 4.5, zinc: 0.9, manganese: 2.7, copper: 0.5,
+    organic_carbon: 0.38, ec: 0.28, calcium: 13.0, magnesium: 4.5
+  },
+  "Rajampeta": { 
+    nitrogen: 45, phosphorus: 9, potassium: 75, ph: 5.5,
+    iron: 4.0, zinc: 0.75, manganese: 2.3, copper: 0.35,
+    organic_carbon: 0.32, ec: 0.22, calcium: 12.0, magnesium: 4.0
+  }
+};
+
+// Fill default for others
+export const getMandalNutrients = (mandalName: string) => {
+  return SOIL_NUTRIENTS[mandalName] || {
+    nitrogen: 45 + Math.random() * 10,
+    phosphorus: 8 + Math.random() * 5,
+    potassium: 70 + Math.random() * 20,
+    ph: 5.5 + Math.random() * 1,
+    iron: 4.0, zinc: 0.8, manganese: 2.5, copper: 0.4,
+    organic_carbon: 0.35, ec: 0.25, calcium: 12.5, magnesium: 4.2
+  };
+};
+
 export const FALLBACK_PESTICIDES = [
   { id: "F_INDOFIL_M45", trade_name: "Indofil M-45", active_ingredient: "Mancozeb 75% WP", category: "fungicide", diseases: ["Early Blight", "Late Blight", "Leaf Spot"], pack_size: "1kg", exact_pack_price_inr: 400, cost_per_acre_inr: 150, dosage_per_liter: "2.5 g/L", locally_available: true },
   { id: "F_SAAF", trade_name: "UPL Saaf", active_ingredient: "Carbendazim 12% + Mancozeb 63% WP", category: "fungicide", diseases: ["Early Blight", "Late Blight"], pack_size: "500g", exact_pack_price_inr: 500, cost_per_acre_inr: 375, dosage_per_liter: "2.5 g/L", locally_available: true },

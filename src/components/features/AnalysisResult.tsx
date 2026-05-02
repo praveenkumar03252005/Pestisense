@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { translations } from '../../lib/translations';
-import { CheckCircle, AlertTriangle, Info, ArrowLeft, Star, MessageSquare } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info, ArrowLeft, Star, MessageSquare, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface AnalysisResultProps {
@@ -9,22 +9,94 @@ interface AnalysisResultProps {
   onReset: () => void;
 }
 
-// Simulated reviews mapped to pesticides for demonstration
-const PESTICIDE_REVIEWS_DB: Record<string, any[]> = {
+// Fallback reviews if DB is empty
+const PESTICIDE_REVIEWS_FALLBACK: Record<string, any[]> = {
   "Mancozeb 75% WP": [
-    { farmer: "రామయ్య (Ramayya)", location: "Madanapalle", text: "చాలా తక్కువ ధరలో దొరుకుతుంది, ముందస్తు నివారణకు మంచిది. (Very affordable, good for prevention)", rating: 5 },
-    { farmer: "Ravi", location: "Pileru", text: "Effective for Early Blight if used early.", rating: 4 }
+    { reviewer_name: "రామయ్య (Ramayya)", reviewer_village: "Madanapalle", review_text: "చాలా తక్కువ ధరలో దొరుకుతుంది, ముందస్తు నివారణకు మంచిది. (Very affordable, good for prevention)", rating: 5, cured: true },
+    { reviewer_name: "Ravi", reviewer_village: "Pileru", review_text: "Effective for Early Blight if used early.", rating: 4, cured: true }
   ],
   "Carbendazim 50% WP": [
-    { farmer: "వెంకట్ (Venkat)", location: "Rayachoti", text: "వర్షం పడినా ఇది బాగా పని చేసింది. సిస్టమిక్ కావడమే దీని ప్లస్. (Worked well even after rain. Systemic action is a plus.)", rating: 5 }
+    { reviewer_name: "వెంకట్ (Venkat)", reviewer_village: "Rayachoti", review_text: "వర్షం పడినా ఇది బాగా పని చేసింది. సిస్టమిక్ కావడమే దీని ప్లస్. (Worked well even after rain. Systemic action is a plus.)", rating: 5, cured: true }
   ],
   "Amistar": [
-    { farmer: "సురేష్ (Suresh)", location: "Kalikiri", text: "ధర ఎక్కువైనా రిజల్ట్ బాగుంది. ఒక్క స్ప్రే తోనే క్లియర్ అయింది. (Price is high but result is good. Cleared in one spray.)", rating: 5 }
+    { reviewer_name: "సురేష్ (Suresh)", reviewer_village: "Kalikiri", review_text: "ధర ఎక్కువైనా రిజల్ట్ బాగుంది. ఒక్క స్ప్రే తోనే క్లియర్ అయింది. (Price is high but result is good. Cleared in one spray.)", rating: 5, cured: true }
   ]
 };
 
 export default function AnalysisResult({ lang, result, onReset }: AnalysisResultProps) {
   const t = translations[lang];
+  const [realReviews, setRealReviews] = useState<Record<string, any[]>>({});
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  useEffect(() => {
+    if (result.recommendations?.length > 0) {
+      fetchAllReviews();
+    }
+  }, [result.recommendations]);
+
+  const fetchAllReviews = async () => {
+    setLoadingReviews(true);
+    const reviewsMap: Record<string, any[]> = {};
+    
+    try {
+      for (const rec of result.recommendations) {
+        const name = rec.brand || rec.name;
+        // Search by area and pesticide
+        const params = new URLSearchParams();
+        params.append('area', result.location);
+        const res = await fetch(`/api/reviews?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Filter if the pesticide name matches (simple string match)
+          reviewsMap[name] = data.filter((r: any) => 
+            r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
+            name.toLowerCase().includes(r.pesticide_name?.toLowerCase())
+          );
+        }
+      }
+      setRealReviews(reviewsMap);
+    } catch (err) {
+      console.warn("Failed to fetch real reviews:", err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  if (result.status === 'invalid') {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-2xl mx-auto"
+      >
+        <div className="card-agri border-red-200 bg-red-50/30 text-center py-12 px-8">
+          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-stone-900 mb-4">
+            {lang === 'te' ? 'టమోటా ఆకు గుర్తించబడలేదు' : 'Tomato Leaf Not Detected'}
+          </h2>
+          <p className="text-stone-600 font-medium mb-8">
+            {lang === 'te' 
+              ? `ఈ చిత్రంలో మా AI ${result.identified_as || 'వస్తువు'}ను గుర్తించింది, కానీ ఇది టమోటా ఆకు లాగా అనిపించడం లేదు. దయచేసి టమోటా ఆకు యొక్క స్పష్టమైన మరియు దగ్గరి ఫోటోను అప్‌లోడ్ చేయండి.`
+              : `Our AI identified this image as ${result.identified_as || 'an object'}, but it doesn't appear to be a tomato leaf. Please upload a clear, close-up photo of a tomato plant leaf for accurate analysis.`}
+          </p>
+          <button 
+            onClick={onReset}
+            className="px-8 py-4 bg-stone-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg"
+          >
+            {t['btn-reset']}
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Map structured diagnosis if available
+  const diseaseInfo = result.diagnosis?.disease || {};
+  const diseaseName = diseaseInfo[lang] || result.disease_name || diseaseInfo.en || 'Unknown Disease';
+  const confidence = result.diagnosis?.confidence || result.confidence_pct;
+  const severity = result.diagnosis?.severity || result.severity;
 
   return (
     <motion.div 
@@ -47,30 +119,48 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
             <div>
               <div className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'గుర్తించిన వ్యాధి' : 'Detected Disease'}</div>
-              <h3 className="text-3xl font-black text-stone-900">{result.disease_name}</h3>
+              <h3 className="text-3xl font-black text-stone-900">{diseaseName}</h3>
             </div>
             <div className="flex gap-4">
-              {result.confidence_pct && (
+              {confidence && (
                 <div className="text-right">
                   <div className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'నమ్మకం' : 'Confidence'}</div>
-                  <div className="text-xl font-black text-green-farm">{result.confidence_pct}%</div>
+                  <div className="text-xl font-black text-green-farm">{confidence}%</div>
                 </div>
               )}
-              {result.severity && (
+              {severity && (
                 <div className="text-right">
                   <div className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'తీవ్రత' : 'Severity'}</div>
-                  <div className="text-xl font-black text-red-500">{result.severity}</div>
+                  <div className="text-xl font-black text-red-500">{severity}</div>
                 </div>
               )}
             </div>
           </div>
+          
+          {result.sprayTiming && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'స్ప్రే సమయం' : 'Spray Timing'}</div>
+                <p className="text-sm font-bold text-blue-900">{result.sprayTiming[lang] || result.sprayTiming.en}</p>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-6">
             <div>
               <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">{t['res-treatment']}</h4>
               <div className="grid grid-cols-1 gap-4">
                 {result.recommendations?.map((rec: any, i: number) => {
-                  const reviews = PESTICIDE_REVIEWS_DB[rec.name] || [];
+                  const pesticideName = rec.brand || rec.name;
+                  const dbReviews = realReviews[pesticideName] || [];
+                  const fallbackReviews = PESTICIDE_REVIEWS_FALLBACK[pesticideName] || [];
+                  
+                  // Priority: Real DB reviews for this area > Fallback static reviews
+                  const reviews = dbReviews.length > 0 ? dbReviews : fallbackReviews;
+                  
+                  const activeIng = rec.activeIngredient || rec.active_ingredient;
+                  const reason = rec.reason?.[lang] || rec.reason?.en || rec.reason;
                   
                   return (
                     <div key={i} className="p-6 bg-stone-50 border border-stone-200 rounded-3xl space-y-4 hover:border-green-farm transition-all group">
@@ -80,25 +170,31 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                             {rec.rank || i + 1}
                           </div>
                           <div>
-                            <div className="text-base font-black text-stone-900 leading-tight">{rec.name}</div>
+                            <div className="text-base font-black text-stone-900 leading-tight">{pesticideName}</div>
                             <div className="text-[10px] font-black text-stone-400 tracking-wider uppercase">
-                              {lang === 'te' ? (rec.category === 'fungicide' ? 'శిలీంద్ర సంహారిణి' : 'పురుగుల మందు') : rec.category}
+                              {activeIng} | {lang === 'te' ? (rec.category === 'fungicide' ? 'శిలీంద్ర సంహారిణి' : 'పురుగుల మందు') : (rec.category || 'Pesticide')}
                             </div>
                           </div>
                         </div>
                         <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">
-                          {rec.legal_status}
+                          {rec.legality || rec.legal_status || 'Approved'}
                         </div>
                       </div>
+
+                      {reason && (
+                        <p className="text-xs font-medium text-stone-600 bg-stone-100/50 p-3 rounded-xl ring-1 ring-stone-200/20">
+                          {reason}
+                        </p>
+                      )}
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm">
                           <div className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{t['res-dose-acre']}</div>
-                          <div className="text-sm font-black text-stone-800">{rec.dose_per_acre || rec.dose}</div>
+                          <div className="text-sm font-black text-stone-800">{rec.dose_acre || rec.dose_per_acre || rec.dose}</div>
                         </div>
                         <div className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm">
                           <div className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{t['res-dose-liter']}</div>
-                          <div className="text-sm font-black text-stone-800">{rec.dose_per_litre || rec.dose}</div>
+                          <div className="text-sm font-black text-stone-800">{rec.dose_15L || rec.dose_per_litre || rec.dose}</div>
                         </div>
                       </div>
 
@@ -121,12 +217,13 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                             {reviews.map((rev, ri) => (
                               <div key={ri} className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm">
                                 <div className="flex justify-between items-center mb-1">
-                                  <span className="text-[10px] font-black text-stone-600">{rev.farmer}</span>
+                                  <span className="text-[10px] font-black text-stone-600">{rev.reviewer_name || rev.farmer}</span>
                                   <div className="flex gap-0.5">
                                     {[...Array(rev.rating)].map((_, si) => <Star key={si} className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />)}
                                   </div>
                                 </div>
-                                <p className="text-[11px] font-medium text-stone-500 italic leading-snug">"{rev.text}"</p>
+                                <p className="text-[11px] font-medium text-stone-500 italic leading-snug">"{rev.review_text || rev.text}"</p>
+                                <div className="text-[8px] font-bold text-stone-400 uppercase mt-1">Village: {rev.reviewer_village || rev.location}</div>
                               </div>
                             ))}
                           </div>
