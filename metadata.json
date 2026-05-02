@@ -2,7 +2,8 @@
   "name": "PestiSense",
   "description": "AI-powered agricultural advisory platform for tomato farmers, providing disease analysis, soil mapping, pesticide recommendations, and secure Google authentication.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ],
   "majorCapabilities": []
 }

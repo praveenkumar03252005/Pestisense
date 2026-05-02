@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Info, ArrowUpRight, ShieldCheck, AlertCircle, FlaskConical as Flask, Activity, Beaker, Calendar, CheckCircle } from 'lucide-react';
+import { MapPin, Info, ArrowUpRight, ShieldCheck, AlertCircle, FlaskConical as Flask, Activity, Beaker, Calendar, CheckCircle, Volume2 } from 'lucide-react';
 import { DISEASE_PREVALENCE, getMandalNutrients } from '../../lib/agriData';
 
 interface MandalProps {
@@ -17,6 +17,29 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
   const [selectedMandal, setSelectedMandal] = useState<MandalProps | null>(null);
   const [mapMode, setMapMode] = useState<'disease' | 'soil'>(initialMode);
   const [nutrientTab, setNutrientTab] = useState<'macro' | 'micro' | 'ratios'>('macro');
+  const [isPlaying, setIsPlaying] = useState<string | null>(null);
+
+  const speakText = (text: string, id: string) => {
+    if (isPlaying === id) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'te' ? 'te-IN' : 'en-US';
+    utterance.onstart = () => setIsPlaying(id);
+    utterance.onend = () => setIsPlaying(null);
+    utterance.onerror = () => setIsPlaying(null);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const speakNutrient = (title: string, value: string, unit: string, status: string) => {
+    const text = lang === 'te' 
+      ? `${title}. విలువ ${value} ${unit}. ఇది ${status}.` 
+      : `${title}. Value is ${value} ${unit}. It is ${status}.`;
+    speakText(text, title);
+  };
 
   const mandals: MandalProps[] = [
     // --- RAYACHOTI HUB (Yellow) ---
@@ -206,15 +229,35 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
             >
               <div>
                 <div className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Village Analysis</div>
-                <h4 className="text-3xl font-black text-stone-900">{selectedMandal.name}</h4>
+                <div className="flex items-center gap-3">
+                  <h4 className="text-3xl font-black text-stone-900">{selectedMandal.name}</h4>
+                  <button 
+                    onClick={() => speakText(`${selectedMandal.name}. ${selectedMandal.zone} Hub.`, 'mandal-title')}
+                    className={`p-2 rounded-xl transition-all ${isPlaying === 'mandal-title' ? 'bg-orange-100 text-orange-700' : 'bg-stone-100 text-stone-400 hover:text-orange-700'}`}
+                  >
+                    <Volume2 className={`w-5 h-5 ${isPlaying === 'mandal-title' ? 'animate-pulse' : ''}`} />
+                  </button>
+                </div>
                 <p className="text-stone-500 font-medium mt-1">Detailed horticultural tracking for the {selectedMandal.zone} sub-region.</p>
               </div>
               <div className="flex gap-4">
-                <div className="text-center p-4 bg-stone-50 rounded-2xl min-w-[120px]">
+                <div className="text-center p-4 bg-stone-50 rounded-2xl min-w-[120px] relative group">
+                  <button 
+                    onClick={() => speakText(`Humidity is 74 percent.`, 'humidity')}
+                    className={`absolute right-1 top-1 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === 'humidity' ? 'opacity-100 bg-orange-100 text-orange-700' : 'text-stone-300 hover:text-orange-700'}`}
+                  >
+                    <Volume2 className="w-3 h-3" />
+                  </button>
                   <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Humidity</div>
                   <div className="text-xl font-black text-stone-900">74%</div>
                 </div>
-                <div className="text-center p-4 bg-stone-50 rounded-2xl min-w-[120px]">
+                <div className="text-center p-4 bg-stone-50 rounded-2xl min-w-[120px] relative group">
+                  <button 
+                    onClick={() => speakText(`Pest Alert is Moderate.`, 'pest-alert')}
+                    className={`absolute right-1 top-1 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === 'pest-alert' ? 'opacity-100 bg-orange-100 text-orange-700' : 'text-stone-300 hover:text-orange-700'}`}
+                  >
+                    <Volume2 className="w-3 h-3" />
+                  </button>
                   <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Pest Alert</div>
                   <div className="text-xl font-black text-amber-600">Moderate</div>
                 </div>
@@ -235,7 +278,13 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
               >
                 {Object.entries(DISEASE_PREVALENCE[selectedMandal.name]).map(([disease, prevalence]) => (
-                  <div key={disease} className="card-agri p-4 bg-white border border-stone-100 flex flex-col justify-center shadow-sm">
+                  <div key={disease} className="card-agri p-4 bg-white border border-stone-100 flex flex-col justify-center shadow-sm relative group">
+                    <button 
+                      onClick={() => speakText(`${disease}. ${prevalence} percent prevalence.`, `disease-${disease}`)}
+                      className={`absolute right-2 top-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === `disease-${disease}` ? 'opacity-100 bg-orange-50 text-orange-600' : 'text-stone-300 hover:text-orange-600'}`}
+                    >
+                      <Volume2 className="w-3 h-3" />
+                    </button>
                     <div className="flex justify-between items-center mb-2">
                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-wider">{disease}</span>
                        {prevalence > 60 ? <AlertCircle className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-500" />}
@@ -314,8 +363,16 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
                         { title: 'Phosphorus', code: 'P₂O₅', value: getMandalNutrients(selectedMandal.name).phosphorus, unit: 'kg/ha', optimal: '20-45', color: 'bg-red-400' },
                         { title: 'Potassium', code: 'K₂O', value: getMandalNutrients(selectedMandal.name).potassium, unit: 'kg/ha', optimal: '150-300', color: 'bg-red-500' },
                         { title: 'Soil pH', code: 'pH', value: getMandalNutrients(selectedMandal.name).ph, unit: '', optimal: '6-7.5', color: 'bg-amber-500', isPH: true },
-                      ].map((nut, idx) => (
+                      ].map((nut, idx) => {
+                        const status = nut.value < parseFloat(nut.optimal.split('-')[0]) ? (nut.isPH ? (nut.value < 6 ? (lang === 'te' ? 'ఆమ్ల స్వభావం' : 'Acidic') : (lang === 'te' ? 'సాధారణం' : 'Normal')) : (lang === 'te' ? 'తక్కువ' : 'Low')) : (lang === 'te' ? 'సరిపడా' : 'Adequate');
+                        return (
                         <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <button 
+                             onClick={() => speakNutrient(nut.title, nut.value.toFixed(1), nut.unit || '', status)}
+                             className={`absolute right-2 top-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === nut.title ? 'opacity-100 bg-orange-50 text-orange-600' : 'text-stone-300 hover:text-orange-600'}`}
+                           >
+                             <Volume2 className="w-3.5 h-3.5" />
+                           </button>
                            <div className="flex justify-between items-start mb-4">
                              <div>
                                <span className="text-base font-black text-stone-900">{nut.title}</span>
@@ -343,15 +400,24 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
                               </div>
                            </div>
                         </div>
-                      ))}
+                        );
+                      })}
 
                       {nutrientTab === 'micro' && [
                         { title: 'Iron', code: 'Fe', value: getMandalNutrients(selectedMandal.name).iron, unit: 'ppm', optimal: '4.5-8', color: 'bg-stone-500' },
                         { title: 'Zinc', code: 'Zn', value: getMandalNutrients(selectedMandal.name).zinc, unit: 'ppm', optimal: '0.6-1.5', color: 'bg-stone-400' },
                         { title: 'Manganese', code: 'Mn', value: getMandalNutrients(selectedMandal.name).manganese, unit: 'ppm', optimal: '2.0-5', color: 'bg-stone-500' },
                         { title: 'Copper', code: 'Cu', value: getMandalNutrients(selectedMandal.name).copper, unit: 'ppm', optimal: '0.2-1.0', color: 'bg-stone-400' },
-                      ].map((nut, idx) => (
+                      ].map((nut, idx) => {
+                        const status = nut.value < parseFloat(nut.optimal.split('-')[0]) ? (lang === 'te' ? 'తక్కువ' : 'Slightly Deficient') : (lang === 'te' ? 'సరిపడా' : 'Sufficient');
+                        return (
                         <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <button 
+                             onClick={() => speakNutrient(nut.title, nut.value.toFixed(2), nut.unit, status)}
+                             className={`absolute right-2 top-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === nut.title ? 'opacity-100 bg-orange-50 text-orange-600' : 'text-stone-300 hover:text-orange-600'}`}
+                           >
+                             <Volume2 className="w-3.5 h-3.5" />
+                           </button>
                            <div className="flex justify-between items-start mb-4">
                              <div>
                                <span className="text-base font-black text-stone-900">{nut.title}</span>
@@ -379,13 +445,22 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
                               </div>
                            </div>
                         </div>
-                      ))}
+                        );
+                      })}
 
                       {nutrientTab === 'ratios' && [
                         { title: 'N : K Ratio', code: 'Nitrogen/Potassium', value: getMandalNutrients(selectedMandal.name).nitrogen / getMandalNutrients(selectedMandal.name).potassium, unit: ': 1', optimal: '0.5:1', color: 'bg-indigo-500' },
                         { title: 'Ca : Mg Ratio', code: 'Calcium/Magnesium', value: getMandalNutrients(selectedMandal.name).calcium / getMandalNutrients(selectedMandal.name).magnesium, unit: ': 1', optimal: '3:1', color: 'bg-indigo-400' },
-                      ].map((nut, idx) => (
+                      ].map((nut, idx) => {
+                        const status = Math.abs(nut.value - parseFloat(nut.optimal)) > 0.5 ? (lang === 'te' ? 'అసమతుల్యత' : 'Imbalanced') : (lang === 'te' ? 'సమతుల్యత' : 'Balanced');
+                        return (
                         <div key={idx} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
+                           <button 
+                             onClick={() => speakNutrient(nut.title, nut.value.toFixed(2), nut.unit, status)}
+                             className={`absolute right-2 top-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isPlaying === nut.title ? 'opacity-100 bg-orange-50 text-orange-600' : 'text-stone-300 hover:text-orange-600'}`}
+                           >
+                             <Volume2 className="w-3.5 h-3.5" />
+                           </button>
                            <div className="flex justify-between items-start mb-4">
                              <div>
                                <span className="text-base font-black text-stone-900">{nut.title}</span>
@@ -413,7 +488,8 @@ export default function RegionalMap({ lang, initialMode = 'disease', hasReport =
                               </div>
                            </div>
                         </div>
-                      ))}
+                        );
+                      })}
                    </div>
                 </div>
               </motion.div>

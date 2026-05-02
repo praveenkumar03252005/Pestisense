@@ -1,14 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Cloud, CloudRain, CloudLightning, Thermometer, Droplets, Wind, Search, MapPin, Loader2, Navigation } from 'lucide-react';
+import { Sun, Cloud, CloudRain, CloudLightning, Thermometer, Droplets, Wind, Search, MapPin, Loader2, Navigation, Volume2, Mic } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function WeatherForecast() {
+interface WeatherForecastProps {
+  lang: 'te' | 'en';
+}
+
+export default function WeatherForecast({ lang }: WeatherForecastProps) {
   const [city, setCity] = useState('Madanapalle');
   const [searchInput, setSearchInput] = useState('');
   const [forecast, setForecast] = useState<any[]>([]);
   const [currentWeather, setCurrentWeather] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isPlaying, setIsPlaying] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('speechRecognition' in window)) {
+      alert('Speech recognition not supported');
+      return;
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === 'te' ? 'te-IN' : 'en-US';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchInput(transcript);
+    };
+    recognition.start();
+  };
+
+  const speakText = (text: string, id: string) => {
+    if (isPlaying === id) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'te' ? 'te-IN' : 'en-US';
+    utterance.onstart = () => setIsPlaying(id);
+    utterance.onend = () => setIsPlaying(null);
+    utterance.onerror = () => setIsPlaying(null);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const fetchWeather = async (cityName: string) => {
     setLoading(true);
@@ -79,6 +117,19 @@ export default function WeatherForecast() {
     }
   };
 
+  const speakAdvisory = () => {
+    const windText = currentWeather.wind < 15 
+      ? (lang === 'te' ? 'గాలి వేగం స్ప్రే చేయడానికి చాలా అనుకూలంగా ఉంది.' : 'Wind speed is ideal for spraying.')
+      : (lang === 'te' ? 'గాలి వేగం ఎక్కువగా ఉంది! స్ప్రే చేయడం మానుకోండి.' : 'High winds! Avoid spraying to prevent drift.');
+    
+    const humText = currentWeather.humidity < 85 
+      ? (lang === 'te' ? 'మందు పీల్చుకోవడానికి గాలిలో తేమ బాగుంది.' : 'Good humidity for absorption.')
+      : (lang === 'te' ? 'తేమ ఎక్కువగా ఉంది, ఇది శిలీంధ్రాల పెరుగుదలకు దారితీయవచ్చు.' : 'High humidity may lead to fungal growth.');
+
+    const textToSpeak = `${lang === 'te' ? 'టమోటా స్ప్రే సలహా.' : 'Tomato Spray Advisory.'} ${windText} ${humText}`;
+    speakText(textToSpeak, 'advisory');
+  };
+
   return (
     <div className="space-y-6">
       {/* Search Bar */}
@@ -88,11 +139,27 @@ export default function WeatherForecast() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input 
               type="text"
-              placeholder="Enter City or Mandal (e.g. Rayachoti, Pileru)..."
-              className="w-full pl-11 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-green-farm focus:border-transparent outline-none transition-all"
+              placeholder={lang === 'te' ? 'నగరం లేదా మండలం నమోదు చేయండి...' : "Enter City or Mandal (e.g. Rayachoti, Pileru)..."}
+              className="w-full pl-11 pr-24 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-green-farm focus:border-transparent outline-none transition-all"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <button 
+                type="button"
+                onClick={() => speakText(searchInput || (lang === 'te' ? 'నగరం నమోదు చేయండి' : 'Enter city name'), 'search-tts')}
+                className={`p-1.5 rounded-lg transition-all ${isPlaying === 'search-tts' ? 'bg-green-100 text-green-700' : 'text-stone-300 hover:text-green-700'}`}
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
+              <button 
+                type="button"
+                onClick={startListening}
+                className={`p-1.5 rounded-lg transition-all ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-stone-300 hover:text-green-700'}`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <button 
             type="submit"
@@ -100,7 +167,7 @@ export default function WeatherForecast() {
             className="px-6 py-3 bg-green-farm text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
-            Get Weather
+            {lang === 'te' ? 'వాతావరణం చూడండి' : 'Get Weather'}
           </button>
         </form>
         {error && <p className="text-red-500 text-[10px] font-black uppercase mt-2 ml-1">{error}</p>}
@@ -127,10 +194,10 @@ export default function WeatherForecast() {
                   <div className="text-5xl font-black mb-2">{currentWeather.temp}°C</div>
                   <div className="flex items-center gap-4 text-blue-50">
                     <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
-                      <Droplets className="w-4 h-4" /> {currentWeather.humidity}% Humidity
+                      <Droplets className="w-4 h-4" /> {currentWeather.humidity}% {lang === 'te' ? 'తేమ' : 'Humidity'}
                     </div>
                     <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
-                      <Wind className="w-4 h-4" /> {currentWeather.wind}km/h Wind
+                      <Wind className="w-4 h-4" /> {currentWeather.wind}km/h {lang === 'te' ? 'గాలి' : 'Wind'}
                     </div>
                   </div>
                 </div>
@@ -145,22 +212,32 @@ export default function WeatherForecast() {
                 </motion.div>
               </div>
               
-              <div className="bg-amber-50 p-6 border border-amber-100 rounded-3xl flex flex-col justify-center shadow-sm">
-                <div className="flex items-center gap-2 text-amber-800 font-black text-xs uppercase tracking-widest mb-3">
+              <div className="bg-amber-50 p-6 border border-amber-100 rounded-3xl flex flex-col justify-center shadow-sm relative">
+                <button 
+                  onClick={speakAdvisory}
+                  className={`absolute right-4 top-4 p-2 rounded-xl transition-all ${isPlaying === 'advisory' ? 'bg-amber-200 text-amber-800 animate-pulse' : 'bg-white text-amber-400 hover:text-amber-800'}`}
+                >
+                  <Volume2 className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-2 text-amber-800 font-black text-xs uppercase tracking-widest mb-3 pr-8">
                   <Thermometer className="w-4 h-4" />
-                  Tomato Spray Advisory
+                  {lang === 'te' ? 'టమోటా స్ప్రే సలహా' : 'Tomato Spray Advisory'}
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-start gap-2">
                     <div className={`mt-1 w-2 h-2 rounded-full ${currentWeather.wind < 15 ? 'bg-green-500' : 'bg-red-500'}`}></div>
                     <p className="text-xs text-stone-700 font-bold">
-                      {currentWeather.wind < 15 ? 'Wind speed is ideal for spraying.' : 'High winds! Avoid spraying to prevent drift.'}
+                      {currentWeather.wind < 15 
+                        ? (lang === 'te' ? 'గాలి వేగం స్ప్రే చేయడానికి చాలా అనుకూలంగా ఉంది.' : 'Wind speed is ideal for spraying.')
+                        : (lang === 'te' ? 'గాలి వేగం ఎక్కువగా ఉంది! స్ప్రే చేయడం మానుకోండి.' : 'High winds! Avoid spraying to prevent drift.')}
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
                     <div className={`mt-1 w-2 h-2 rounded-full ${currentWeather.humidity < 85 ? 'bg-green-500' : 'bg-amber-500'}`}></div>
                     <p className="text-xs text-stone-700 font-bold">
-                      {currentWeather.humidity < 85 ? 'Good humidity for absorption.' : 'High humidity may lead to fungal growth.'}
+                      {currentWeather.humidity < 85 
+                        ? (lang === 'te' ? 'మందు పీల్చుకోవడానికి గాలిలో తేమ బాగుంది.' : 'Good humidity for absorption.')
+                        : (lang === 'te' ? 'తేమ ఎక్కువగా ఉంది, ఇది శిలీంధ్రాల పెరుగుదలకు దారితీయవచ్చు.' : 'High humidity may lead to fungal growth.')}
                     </p>
                   </div>
                 </div>
@@ -182,7 +259,7 @@ export default function WeatherForecast() {
                   </div>
                   <div className="text-2xl font-black text-stone-900 mb-1">{f.temp}°</div>
                   <div className={`text-[9px] font-black uppercase tracking-widest ${f.rain > 30 ? 'text-blue-500' : 'text-stone-400'}`}>
-                    {f.rain}% Rain
+                    {f.rain}% {lang === 'te' ? 'వర్షం' : 'Rain'}
                   </div>
                 </motion.div>
               ))}
@@ -194,7 +271,9 @@ export default function WeatherForecast() {
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-stone-100">
           <Loader2 className="w-10 h-10 text-green-farm animate-spin mb-4" />
-          <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Fetching local climate data...</p>
+          <p className="text-xs font-black text-stone-400 uppercase tracking-widest">
+            {lang === 'te' ? 'వాతావరణ సమాచారాన్ని సేకరిస్తోంది...' : 'Fetching local climate data...'}
+          </p>
         </div>
       )}
     </div>

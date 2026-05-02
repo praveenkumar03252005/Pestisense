@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { translations } from '../../lib/translations';
-import { CheckCircle, AlertTriangle, Info, ArrowLeft, Star, MessageSquare, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info, ArrowLeft, Star, MessageSquare, Loader2, Volume2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface AnalysisResultProps {
@@ -27,6 +27,7 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
   const t = translations[lang];
   const [realReviews, setRealReviews] = useState<Record<string, any[]>>({});
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<string | null>(null);
 
   useEffect(() => {
     if (result.recommendations?.length > 0) {
@@ -60,6 +61,21 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
     } finally {
       setLoadingReviews(false);
     }
+  };
+
+  const speakText = (text: string, id: string) => {
+    if (isPlaying === id) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'te' ? 'te-IN' : 'en-US';
+    utterance.onstart = () => setIsPlaying(id);
+    utterance.onend = () => setIsPlaying(null);
+    utterance.onerror = () => setIsPlaying(null);
+    window.speechSynthesis.speak(utterance);
   };
 
   if (result.status === 'invalid') {
@@ -119,7 +135,15 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
             <div>
               <div className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'గుర్తించిన వ్యాధి' : 'Detected Disease'}</div>
-              <h3 className="text-3xl font-black text-stone-900">{diseaseName}</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-3xl font-black text-stone-900">{diseaseName}</h3>
+                <button 
+                  onClick={() => speakText(`${diseaseName}. ${result.sprayTiming ? (result.sprayTiming[lang] || result.sprayTiming.en) : ''}`, 'disease')}
+                  className={`p-2 rounded-xl transition-all ${isPlaying === 'disease' ? 'bg-soil-100 text-soil-800' : 'bg-stone-100 text-stone-400 hover:text-soil-800'}`}
+                >
+                  <Volume2 className={`w-5 h-5 ${isPlaying === 'disease' ? 'animate-pulse' : ''}`} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-4">
               {confidence && (
@@ -170,7 +194,15 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                             {rec.rank || i + 1}
                           </div>
                           <div>
-                            <div className="text-base font-black text-stone-900 leading-tight">{pesticideName}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-base font-black text-stone-900 leading-tight">{pesticideName}</div>
+                              <button 
+                                onClick={() => speakText(`${pesticideName}. ${reason || ''}. Dose: ${rec.dose_acre}`, `rec-${i}`)}
+                                className={`p-1 rounded-lg transition-all ${isPlaying === `rec-${i}` ? 'text-soil-800' : 'text-stone-300 hover:text-soil-800'}`}
+                              >
+                                <Volume2 className={`w-3 h-3 ${isPlaying === `rec-${i}` ? 'animate-pulse' : ''}`} />
+                              </button>
+                            </div>
                             <div className="text-[10px] font-black text-stone-400 tracking-wider uppercase">
                               {activeIng} | {lang === 'te' ? (rec.category === 'fungicide' ? 'శిలీంద్ర సంహారిణి' : 'పురుగుల మందు') : (rec.category || 'Pesticide')}
                             </div>

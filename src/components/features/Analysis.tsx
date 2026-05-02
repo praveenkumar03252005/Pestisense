@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, MapPin, Stethoscope, FlaskConical, CheckCircle, Loader2, Info, Search, ShieldCheck, Microscope, Database, FileText } from 'lucide-react';
+import { Camera, MapPin, Stethoscope, FlaskConical, CheckCircle, Loader2, Info, Search, ShieldCheck, Microscope, Database, FileText, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
 import { analyzeLeaf } from '../../services/geminiService';
@@ -27,6 +27,7 @@ export default function Analysis({ lang, token, onResult, onSoilReport }: Analys
   const [form, setForm] = useState({ area: '', crop_stage: 'flowering' });
   const [leafFile, setLeafFile] = useState<File | null>(null);
   const [soilFile, setSoilFile] = useState<File | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const leafInputRef = useRef<HTMLInputElement>(null);
   const soilInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +41,29 @@ export default function Analysis({ lang, token, onResult, onSoilReport }: Analys
     }
     return () => clearInterval(interval);
   }, [analyzing]);
+
+  const toggleVoice = () => {
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in your browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === 'te' ? 'te-IN' : 'en-IN';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setForm(prev => ({ ...prev, area: transcript }));
+    };
+    recognition.start();
+  };
 
   const runAnalysis = async () => {
     if (!leafFile) return;
@@ -192,13 +216,21 @@ export default function Analysis({ lang, token, onResult, onSoilReport }: Analys
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">{t['loc-title']}</label>
-                    <input 
-                      type="text" 
-                      placeholder={t['loc-ph']}
-                      className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-soil-800 outline-none transition-all font-bold"
-                      value={form.area}
-                      onChange={e => setForm({ ...form, area: e.target.value })}
-                    />
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        placeholder={t['loc-ph']}
+                        className="w-full pl-4 pr-12 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-soil-800 outline-none transition-all font-bold"
+                        value={form.area}
+                        onChange={e => setForm({ ...form, area: e.target.value })}
+                      />
+                      <button 
+                        onClick={toggleVoice}
+                        className={`absolute right-2 top-1.5 p-2 rounded-xl transition-all ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-stone-400 hover:text-soil-800'}`}
+                      >
+                        {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">{t['stage-label']}</label>

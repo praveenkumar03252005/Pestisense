@@ -93,9 +93,9 @@ export default function App() {
           />
         );
       case 'weather':
-        return <WeatherForecast />;
+        return <WeatherForecast lang={lang} />;
       case 'reviews':
-        return <FarmerReviews />;
+        return <FarmerReviews lang={lang} />;
       case 'sales':
         return <PesticideCatalog lang={lang} />;
       case 'ocr':

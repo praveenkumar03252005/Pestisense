@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Loader2, User, Bot } from 'lucide-react';
+import { MessageSquare, Send, X, Loader2, User, Bot, Mic, MicOff, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
 import { chatWithGemini } from '../../services/geminiService';
@@ -13,6 +13,8 @@ export default function AIChatbot({ lang }: AIChatbotProps) {
   const [messages, setMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
 
@@ -21,6 +23,48 @@ export default function AIChatbot({ lang }: AIChatbotProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const toggleVoice = () => {
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in your browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === 'te' ? 'te-IN' : 'en-IN';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev ? `${prev} ${transcript}` : transcript);
+    };
+    recognition.start();
+  };
+
+  const speakText = (text: string, index: number) => {
+    if (isPlaying === index) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'te' ? 'te-IN' : 'en-US';
+    
+    utterance.onstart = () => setIsPlaying(index);
+    utterance.onend = () => setIsPlaying(null);
+    utterance.onerror = () => setIsPlaying(null);
+    
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -74,9 +118,18 @@ export default function AIChatbot({ lang }: AIChatbotProps) {
                 </div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${m.role === 'user' ? 'bg-soil-800 text-white rounded-tr-none' : 'bg-white text-stone-800 border border-stone-100 rounded-tl-none'}`}>
+                <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div className={`max-w-[85%] relative group rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${m.role === 'user' ? 'bg-soil-800 text-white rounded-tr-none' : 'bg-white text-stone-800 border border-stone-100 rounded-tl-none'}`}>
                     {m.text}
+                    {m.role === 'bot' && (
+                      <button 
+                        onClick={() => speakText(m.text, i)}
+                        className={`absolute -right-10 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white border border-stone-100 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity ${isPlaying === i ? 'opacity-100 text-soil-800' : 'text-stone-400 hover:text-soil-800'}`}
+                        title="Speak message"
+                      >
+                        <Volume2 className={`w-3.5 h-3.5 ${isPlaying === i ? 'animate-pulse' : ''}`} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -90,7 +143,13 @@ export default function AIChatbot({ lang }: AIChatbotProps) {
             </div>
 
             {/* Input */}
-            <div className="p-4 bg-white border-t border-stone-100 flex gap-2">
+            <div className="p-4 bg-white border-t border-stone-100 flex gap-2 items-center">
+              <button 
+                onClick={toggleVoice}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-stone-100 text-stone-400 hover:text-soil-800'}`}
+              >
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
               <input 
                 type="text" 
                 placeholder={t['ai-chat-ph']}
