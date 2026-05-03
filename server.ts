@@ -9,7 +9,6 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Type } from "@google/genai";
 
 console.log('--- SERVER STARTING UP ---');
 dotenv.config();
@@ -19,21 +18,6 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for images
-
-// Lazy-initialize Gemini using the NEW unified SDK pattern from README
-let genAI: any = null;
-function getAI() {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      console.error('CRITICAL: No API key found for Gemini (tried GEMINI_API_KEY and GOOGLE_API_KEY)');
-      throw new Error('GEMINI_API_KEY environment variable is not set.');
-    }
-    console.log('Initializing Gemini AI Client with key starting with:', apiKey.substring(0, 5));
-    genAI = new GoogleGenAI({ apiKey });
-  }
-  return genAI;
-}
 
 async function startServer() {
   // MongoDB Connection
@@ -123,11 +107,19 @@ async function startServer() {
 
   // --- API ROUTES ---
 
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
+  app.get('/api/debug-env', (req, res) => {
+    const keys = Object.keys(process.env).filter(k => k.includes('KEY') || k.includes('API') || k.includes('GEMINI'));
+    res.json({ keys });
   });
 
-  // --- SOIL DATA ---
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      time: new Date().toISOString(), 
+      env: process.env.NODE_ENV,
+      hasGemini: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
+    });
+  });
   app.get('/api/soil', async (req, res) => {
     try {
       // Mock data matching the frontend's expected format if no real records
@@ -440,154 +432,6 @@ async function startServer() {
 
       res.json(formatted);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // --- GEMINI AI ROUTES ---
-  app.post('/api/gemini/chat', async (req, res) => {
-    try {
-      const { messages, lang } = req.body;
-      console.log(`[Gemini Chat] Start. Language: ${lang}, Messages: ${messages?.length}`);
-      const ai = getAI();
-      
-      const systemPrompt = `
-        You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
-        Answer the farmer's questions in ${lang === 'te' ? 'Telugu' : 'English'}. 
-        Provide scientific, practical, and safe advice. 
-        The area is famous for the Madanapalle Tomato Market.
-        If recommending pesticides, strictly mention that they should be CIBRC (Central Insecticides Board & Registration Committee) approved. 
-        Keep answers concise, technical yet simple for a farmer.
-      `;
-
-      const contents = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-        ...(messages || []).map((m: any) => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text || m.content || '' }]
-        }))
-      ];
-
-      const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents
-      });
-      console.log(`[Gemini Chat] Success.`);
-      res.json({ text: result.text || '' });
-    } catch (err: any) {
-      console.error('[Gemini Chat Error]:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/gemini/identify-pesticide', async (req, res) => {
-    try {
-      let { image, mimeType } = req.body;
-      console.log(`[Gemini Identify] Start. Mime: ${mimeType}`);
-      
-      // Sanitization: Remove data:image/...;base64, prefix if present
-      if (image && image.includes(',')) {
-        image = image.split(',')[1];
-      }
-
-      const ai = getAI();
-
-      const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
-      Extract these specific fields: 1. Product Name, 2. Active Ingredient, 3. Formulation, 4. Usage for Tomato crops, 5. Safety Warning.
-      Respond STRICTLY in JSON format. Use this schema: { "name": "string", "active": "string", "form": "string", "usage": "string", "warning": "string" }`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { data: image, mimeType } }
-          ]
-        }],
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
-
-      let text = result.text || '{}';
-      console.log(`[Gemini Identify] Raw response: ${text.substring(0, 100)}...`);
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      try {
-        res.json(JSON.parse(text));
-      } catch (parseErr) {
-        console.error('[Gemini Identify] JSON Parse Error:', parseErr, 'Raw Text:', text);
-        res.status(500).json({ 
-          error: 'Invalid response format from AI', 
-          raw: text.substring(0, 500) 
-        });
-      }
-    } catch (err: any) {
-      console.error('[Gemini Identify Error]:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/gemini/analyze-leaf', async (req, res) => {
-    try {
-      let { image, mimeType, location, growthStage } = req.body;
-      console.log(`[Gemini Analyze] Start. Location: ${location}, Stage: ${growthStage}`);
-
-      // Sanitization: Remove data:image/...;base64, prefix if present
-      if (image && image.includes(',')) {
-        image = image.split(',')[1];
-      }
-
-      const ai = getAI();
-
-      const prompt = `You are a high-end agricultural diagnostic tool for tomato farmers in Madanapalle. 
-      Analyze this image of a plant/leaf.
-      Location: ${location}, Stage: ${growthStage}.
-
-      Provide a JSON response with:
-      1. is_tomato (boolean)
-      2. identified_as (string)
-      3. disease (object with "en" and "te" keys)
-      4. severity ("Low", "Medium", or "High")
-      5. confidence (number between 0 and 1)
-      6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L")
-      7. sprayTiming (object with "en" and "te" keys)
-
-      Respond ONLY with the JSON object.`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { data: image, mimeType } }
-          ]
-        }],
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
-
-      let text = result.text || '{}';
-      console.log(`[Gemini Analyze] Raw response: ${text.substring(0, 100)}...`);
-      
-      // Sanitization
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      try {
-        const parsed = JSON.parse(text);
-        res.json(parsed);
-      } catch (parseErr) {
-        console.error('[Gemini Analyze] JSON Parse Error:', parseErr, 'Raw Text:', text);
-        res.status(500).json({ 
-          error: 'Invalid response format from AI', 
-          raw: text.substring(0, 500) 
-        });
-      }
-    } catch (err: any) {
-      console.error('[Gemini Analyze Error]:', err);
       res.status(500).json({ error: err.message });
     }
   });
