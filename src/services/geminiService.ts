@@ -9,6 +9,27 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+const extractJson = (text: string) => {
+  try {
+    // Try first-pass parse
+    return JSON.parse(text);
+  } catch (e) {
+    // If it fails, try to find the start and end of the first balanced JSON object
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonContent = text.substring(start, end + 1);
+      try {
+        return JSON.parse(jsonContent);
+      } catch (innerE) {
+        console.error("Failed to parse extracted JSON:", innerE);
+        throw e; // throw original if extraction also fails
+      }
+    }
+    throw e;
+  }
+};
+
 export const geminiModel = "gemini-3-flash-preview";
 
 export async function chatWithGemini(messages: { role: 'user' | 'bot'; text: string }[], lang: 'te' | 'en') {
@@ -72,7 +93,7 @@ export async function identifyPesticide(base64Image: string, mimeType: string) {
 
     let text = response.text || '{}';
     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(text);
+    return extractJson(text);
   } catch (err: any) {
     console.error("Gemini Pesticide ID Error:", err);
     return { name: "Unknown", active: "Unknown", form: "Unknown", usage: "Unknown", warning: "Please consult an expert." };
@@ -97,8 +118,10 @@ export async function analyzeLeaf(base64Image: string, mimeType: string, locatio
     3. disease (object with "en" and "te" keys)
     4. severity ("Low", "Medium", or "High")
     5. confidence (number between 0 and 1)
-    6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L")
+    6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L", "steps" (array of strings in en/te))
     7. sprayTiming (object with "en" and "te" keys)
+
+    The "steps" should be a 3-4 step procedure for how to apply that specific pesticide (e.g., mixing, safety, spray technique).
 
     Respond ONLY with the JSON object.`;
 
@@ -120,7 +143,7 @@ export async function analyzeLeaf(base64Image: string, mimeType: string, locatio
     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     try {
-      return JSON.parse(text);
+      return extractJson(text);
     } catch (parseErr) {
       console.error("Gemini JSON Parse Error:", parseErr, "Text:", text);
       throw new Error("Invalid response format from AI");

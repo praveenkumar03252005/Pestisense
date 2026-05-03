@@ -85,6 +85,14 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
     window.speechSynthesis.speak(utterance);
   };
 
+  const renderLocal = (val: any) => {
+    if (typeof val === 'string' || typeof val === 'number') return val;
+    if (val && typeof val === 'object') {
+      return val[lang] || val.en || JSON.stringify(val);
+    }
+    return val;
+  };
+
   if (result.status === 'invalid') {
     return (
       <motion.div 
@@ -117,9 +125,9 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
 
   // Map structured diagnosis if available
   const diseaseInfo = result.diagnosis?.disease || {};
-  const diseaseName = diseaseInfo[lang] || result.disease_name || diseaseInfo.en || 'Unknown Disease';
+  const diseaseName = renderLocal(diseaseInfo) || renderLocal(result.disease_name) || 'Unknown Disease';
   const confidence = result.diagnosis?.confidence || result.confidence_pct;
-  const severity = result.diagnosis?.severity || result.severity;
+  const severity = renderLocal(result.diagnosis?.severity || result.severity);
 
   return (
     <motion.div 
@@ -173,7 +181,7 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
               <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <div>
                 <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">{lang === 'te' ? 'స్ప్రే సమయం' : 'Spray Timing'}</div>
-                <p className="text-sm font-bold text-blue-900">{result.sprayTiming[lang] || result.sprayTiming.en}</p>
+                <p className="text-sm font-bold text-blue-900">{renderLocal(result.sprayTiming)}</p>
               </div>
             </div>
           )}
@@ -190,8 +198,8 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                   // Priority: Real DB reviews for this area > Fallback static reviews
                   const reviews = dbReviews.length > 0 ? dbReviews : fallbackReviews;
                   
-                  const activeIng = rec.activeIngredient || rec.active_ingredient;
-                  const reason = rec.reason?.[lang] || rec.reason?.en || rec.reason;
+                  const activeIng = renderLocal(rec.activeIngredient || rec.active_ingredient);
+                  const reason = renderLocal(rec.reason);
                   
                   return (
                     <div key={i} className="p-6 bg-stone-50 border border-stone-200 rounded-3xl space-y-4 hover:border-green-farm transition-all group">
@@ -229,40 +237,78 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm">
                           <div className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{t['res-dose-acre']}</div>
-                          <div className="text-sm font-black text-stone-800">{rec.dose_acre || rec.dose_per_acre || rec.dose}</div>
+                          <div className="text-sm font-black text-stone-800">{renderLocal(rec.dose_acre || rec.dose_per_acre || rec.dose)}</div>
                         </div>
                         <div className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm">
                           <div className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{t['res-dose-liter']}</div>
-                          <div className="text-sm font-black text-stone-800">{rec.dose_15L || rec.dose_per_litre || rec.dose}</div>
+                          <div className="text-sm font-black text-stone-800">{renderLocal(rec.dose_15L || rec.dose_per_litre || rec.dose)}</div>
                         </div>
                       </div>
 
-                      {rec.application_method && (
+                      {rec.application_method && !rec.steps && (
                         <div className="bg-stone-100/50 p-4 rounded-xl border border-stone-200/50">
                           <div className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                             <Info className="w-3 h-3" /> {t['res-app-method']}
                           </div>
-                          <p className="text-xs font-bold text-stone-700 leading-relaxed">{rec.application_method}</p>
+                          <p className="text-xs font-bold text-stone-700 leading-relaxed">{renderLocal(rec.application_method)}</p>
+                        </div>
+                      )}
+
+                      {rec.steps && (
+                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100/50">
+                          <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <CheckCircle className="w-3.5 h-3.5" /> {t['res-how-to-apply']}
+                          </div>
+                          <div className="space-y-3">
+                            {(Array.isArray(rec.steps) ? rec.steps : (rec.steps[lang] || rec.steps.en || [])).map((step: string, si: number) => (
+                              <div key={si} className="flex gap-3">
+                                <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">
+                                  {si + 1}
+                                </div>
+                                <p className="text-xs font-bold text-stone-700">{renderLocal(step)}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 
                       {/* Integrated Farmer Reviews for this pesticide */}
                       {reviews.length > 0 && (
-                        <div className="space-y-3 pt-2">
-                          <div className="flex items-center gap-2 text-[10px] font-black text-stone-400 uppercase tracking-widest border-t border-stone-200 pt-3">
-                            <MessageSquare className="w-3 h-3" /> {t['res-reviews']}
+                        <div className="space-y-3 pt-2 bg-white/40 p-4 rounded-2xl border border-stone-100">
+                          <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-2">
+                            <div className="flex items-center gap-2 text-[10px] font-black text-stone-900 uppercase tracking-widest">
+                              <MessageSquare className="w-3.5 h-3.5 text-green-farm" /> {t['res-reviews']}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span className="text-[10px] font-black">4.8/5</span>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3">
                             {reviews.map((rev, ri) => (
-                              <div key={ri} className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm">
+                              <div key={ri} className="bg-white/80 p-3 rounded-xl border border-stone-100/50 shadow-sm">
                                 <div className="flex justify-between items-center mb-1">
-                                  <span className="text-[10px] font-black text-stone-600">{rev.reviewer_name || rev.farmer}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center text-[8px] font-black text-stone-400">
+                                      {rev.reviewer_name?.[0] || 'F'}
+                                    </div>
+                                    <span className="text-[10px] font-black text-stone-800">{rev.reviewer_name || rev.farmer}</span>
+                                  </div>
                                   <div className="flex gap-0.5">
-                                    {[...Array(rev.rating)].map((_, si) => <Star key={si} className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />)}
+                                    {[...Array(5)].map((_, si) => (
+                                      <Star key={si} className={`w-2.5 h-2.5 ${si < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
+                                    ))}
                                   </div>
                                 </div>
-                                <p className="text-[11px] font-medium text-stone-500 italic leading-snug">"{rev.review_text || rev.text}"</p>
-                                <div className="text-[8px] font-bold text-stone-400 uppercase mt-1">Village: {rev.reviewer_village || rev.location}</div>
+                                <p className="text-[11px] font-medium text-stone-600 italic leading-snug line-clamp-2">"{rev.review_text || rev.text}"</p>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="text-[8px] font-bold text-stone-400 uppercase">📍 {rev.reviewer_village || rev.location}</div>
+                                  {rev.cured && (
+                                    <div className="text-[8px] font-black text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md flex items-center gap-1 uppercase">
+                                      <CheckCircle className="w-2 h-2" /> Resolved
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
