@@ -24,11 +24,12 @@ app.use(express.json({ limit: '50mb' })); // Increase limit for images
 let genAI: any = null;
 function getAI() {
   if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
+      console.error('CRITICAL: No API key found for Gemini (tried GEMINI_API_KEY and GOOGLE_API_KEY)');
       throw new Error('GEMINI_API_KEY environment variable is not set.');
     }
-    // According to README, GoogleGenAI takes an object with apiKey
+    console.log('Initializing Gemini AI Client with key starting with:', apiKey.substring(0, 5));
     genAI = new GoogleGenAI({ apiKey });
   }
   return genAI;
@@ -447,6 +448,7 @@ async function startServer() {
   app.post('/api/gemini/chat', async (req, res) => {
     try {
       const { messages, lang } = req.body;
+      console.log(`[Gemini Chat] Start. Language: ${lang}, Messages: ${messages?.length}`);
       const ai = getAI();
       
       const systemPrompt = `
@@ -460,9 +462,9 @@ async function startServer() {
 
       const contents = [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        ...messages.map((m: any) => ({
+        ...(messages || []).map((m: any) => ({
           role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text }]
+          parts: [{ text: m.text || m.content || '' }]
         }))
       ];
 
@@ -470,16 +472,24 @@ async function startServer() {
         model: "gemini-1.5-flash",
         contents
       });
+      console.log(`[Gemini Chat] Success.`);
       res.json({ text: result.text || '' });
     } catch (err: any) {
-      console.error('Gemini Chat Error:', err);
+      console.error('[Gemini Chat Error]:', err);
       res.status(500).json({ error: err.message });
     }
   });
 
   app.post('/api/gemini/identify-pesticide', async (req, res) => {
     try {
-      const { image, mimeType } = req.body;
+      let { image, mimeType } = req.body;
+      console.log(`[Gemini Identify] Start. Mime: ${mimeType}`);
+      
+      // Sanitization: Remove data:image/...;base64, prefix if present
+      if (image && image.includes(',')) {
+        image = image.split(',')[1];
+      }
+
       const ai = getAI();
 
       const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
@@ -501,17 +511,34 @@ async function startServer() {
       });
 
       let text = result.text || '{}';
+      console.log(`[Gemini Identify] Raw response: ${text.substring(0, 100)}...`);
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      res.json(JSON.parse(text));
+      
+      try {
+        res.json(JSON.parse(text));
+      } catch (parseErr) {
+        console.error('[Gemini Identify] JSON Parse Error:', parseErr, 'Raw Text:', text);
+        res.status(500).json({ 
+          error: 'Invalid response format from AI', 
+          raw: text.substring(0, 500) 
+        });
+      }
     } catch (err: any) {
-      console.error('Gemini Identify Error:', err);
+      console.error('[Gemini Identify Error]:', err);
       res.status(500).json({ error: err.message });
     }
   });
 
   app.post('/api/gemini/analyze-leaf', async (req, res) => {
     try {
-      const { image, mimeType, location, growthStage } = req.body;
+      let { image, mimeType, location, growthStage } = req.body;
+      console.log(`[Gemini Analyze] Start. Location: ${location}, Stage: ${growthStage}`);
+
+      // Sanitization: Remove data:image/...;base64, prefix if present
+      if (image && image.includes(',')) {
+        image = image.split(',')[1];
+      }
+
       const ai = getAI();
 
       const prompt = `You are a high-end agricultural diagnostic tool for tomato farmers in Madanapalle. 
@@ -544,13 +571,23 @@ async function startServer() {
       });
 
       let text = result.text || '{}';
-      console.log('Gemini raw response text:', text);
+      console.log(`[Gemini Analyze] Raw response: ${text.substring(0, 100)}...`);
       
       // Sanitization
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      res.json(JSON.parse(text));
+      
+      try {
+        const parsed = JSON.parse(text);
+        res.json(parsed);
+      } catch (parseErr) {
+        console.error('[Gemini Analyze] JSON Parse Error:', parseErr, 'Raw Text:', text);
+        res.status(500).json({ 
+          error: 'Invalid response format from AI', 
+          raw: text.substring(0, 500) 
+        });
+      }
     } catch (err: any) {
-      console.error('Gemini Analyze Error:', err);
+      console.error('[Gemini Analyze Error]:', err);
       res.status(500).json({ error: err.message });
     }
   });

@@ -31,8 +31,9 @@ export async function analyzeLeaf(base64Image: string, mimeType: string, locatio
       growthStage 
     });
     return response.data;
-  } catch (err) {
-    console.error("Gemini Leaf Analysis Error:", err);
-    throw new Error("The AI provided an invalid response format or failed to analyze. Please try again.");
+  } catch (err: any) {
+    console.error("Gemini Leaf Analysis Error:", err.response?.data || err.message);
+    const errorMessage = err.response?.data?.error || err.message;
+    throw new Error(`Analysis failed: ${errorMessage}`);
   }
 }
