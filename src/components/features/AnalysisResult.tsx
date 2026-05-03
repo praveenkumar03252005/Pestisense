@@ -40,26 +40,35 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
     const reviewsMap: Record<string, any[]> = {};
     
     try {
-      for (const rec of result.recommendations) {
-        const name = rec.brand || rec.name;
-        // Search all reviews (seeding will ensure some exist)
-        const res = await fetch(`/api/reviews`);
-        if (res.ok) {
-          const data = await res.json();
-          // Filter by pesticide name OR brand
-          reviewsMap[name] = data.filter((r: any) => 
-            (r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
-             name.toLowerCase().includes(r.pesticide_name?.toLowerCase())) &&
-            (result.location ? r.reviewer_village?.toLowerCase().includes(result.location.toLowerCase()) : true)
+      // Fetch all reviews once
+      const response = await fetch(`/api/reviews`);
+      if (response.ok) {
+        const allReviews = await response.json();
+        
+        for (const rec of result.recommendations) {
+          const name = rec.brand || rec.name;
+          const pId = rec.pesticide_id;
+          
+          // Filter by pesticide_id (preferred) or name matching
+          let filtered = allReviews.filter((r: any) => 
+            (pId && r.pesticide_id === pId) ||
+            r.pesticide_id === name.toLowerCase() ||
+            name.toLowerCase().includes(r.pesticide_id || '') ||
+            (r.pesticide_name?.toLowerCase().includes(name.toLowerCase()))
           );
           
-          // If no local reviews, fallback to general reviews for this pesticide
-          if (reviewsMap[name].length === 0) {
-             reviewsMap[name] = data.filter((r: any) => 
-               r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
-               name.toLowerCase().includes(r.pesticide_name?.toLowerCase())
-             ).slice(0, 2);
+          // Prioritize by location
+          if (result.location) {
+            filtered.sort((a: any, b: any) => {
+              const aInArea = a.reviewer_village?.toLowerCase().includes(result.location.toLowerCase());
+              const bInArea = b.reviewer_village?.toLowerCase().includes(result.location.toLowerCase());
+              if (aInArea && !bInArea) return -1;
+              if (!aInArea && bInArea) return 1;
+              return 0;
+            });
           }
+          
+          reviewsMap[name] = filtered.slice(0, 3);
         }
       }
       setRealReviews(reviewsMap);
@@ -129,6 +138,29 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
   const confidence = result.diagnosis?.confidence || result.confidence_pct;
   const severity = renderLocal(result.diagnosis?.severity || result.severity);
 
+  // Filter and sort recommendations by cost (ascending)
+  const sortedRecommendations = [...(result.recommendations || [])].sort((a, b) => {
+    const costA = a.cost_acre || a.estimated_cost_per_acre_inr || a.cost_per_acre_inr || 0;
+    const costB = b.cost_acre || b.estimated_cost_per_acre_inr || b.cost_per_acre_inr || 0;
+    return costA - costB;
+  });
+
+  const shareDiagnosis = () => {
+    const topRec = sortedRecommendations[0];
+    const text = `*PestiSense Diagnosis Report* \n\n` +
+      `*Disease:* ${diseaseName}\n` +
+      `*Severity:* ${severity}\n` +
+      `*Location:* ${result.location || 'Madanapalle Region'}\n\n` +
+      `*Top Recommendation (Best Value):* \n` +
+      `${topRec?.brand || 'Recommended Fungicide'}\n` +
+      `*Dose:* ${renderLocal(topRec?.dose_acre)}/acre\n` +
+      `*Estimated Cost:* ₹${topRec?.cost_acre || topRec?.estimated_cost_per_acre_inr || topRec?.cost_per_acre_inr || 'N/A'}/acre\n\n` +
+      `_Identified by PestiSense Agri AI_`;
+    
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -136,14 +168,24 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
       className="max-w-3xl mx-auto space-y-8"
     >
       <div className="card-agri border-green-200 bg-green-50/30">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-12 h-12 bg-green-farm text-white rounded-2xl flex items-center justify-center shadow-lg">
-            <CheckCircle className="w-7 h-7" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-farm text-white rounded-2xl flex items-center justify-center shadow-lg">
+              <CheckCircle className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-stone-900 leading-tight">{t['res-title']}</h2>
+              <p className="text-stone-500 font-bold">{t['res-sub']}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black text-stone-900 leading-tight">{t['res-title']}</h2>
-            <p className="text-stone-500 font-bold">{t['res-sub']}</p>
-          </div>
+          <button 
+            onClick={shareDiagnosis}
+            className="p-3 bg-white text-green-600 rounded-2xl hover:bg-green-farm hover:text-white transition-all border border-green-100 flex items-center gap-2 group shadow-sm"
+            title="Share on WhatsApp"
+          >
+            <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-black hidden sm:inline">SHARE</span>
+          </button>
         </div>
 
         <div className="p-8 bg-white rounded-2xl shadow-sm border border-stone-100">
@@ -188,9 +230,11 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
 
           <div className="space-y-6">
             <div>
-              <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">{t['res-treatment']}</h4>
+              <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">
+                {t['res-treatment']} ({lang === 'te' ? 'తక్కువ ధర నుండి ఎక్కువకు' : 'Cheapest to Premium'})
+              </h4>
               <div className="grid grid-cols-1 gap-4">
-                {result.recommendations?.map((rec: any, i: number) => {
+                {sortedRecommendations.map((rec: any, i: number) => {
                   const pesticideName = rec.brand || rec.name;
                   const dbReviews = realReviews[pesticideName] || [];
                   const fallbackReviews = PESTICIDE_REVIEWS_FALLBACK[pesticideName] || [];
@@ -200,17 +244,21 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                   
                   const activeIng = renderLocal(rec.activeIngredient || rec.active_ingredient);
                   const reason = renderLocal(rec.reason);
+                  const costPerAcre = rec.cost_acre || rec.estimated_cost_per_acre_inr || rec.cost_per_acre_inr;
                   
                   return (
-                    <div key={i} className="p-6 bg-stone-50 border border-stone-200 rounded-3xl space-y-4 hover:border-green-farm transition-all group">
+                    <div key={i} className={`p-6 bg-stone-50 border rounded-3xl space-y-4 hover:border-green-farm transition-all group ${i === 0 ? 'border-green-500 ring-4 ring-green-500/5' : 'border-stone-200'}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-green-farm text-white rounded-lg flex items-center justify-center font-black shadow-sm">
-                            {rec.rank || i + 1}
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black shadow-sm ${i === 0 ? 'bg-green-600 text-white' : 'bg-stone-200 text-stone-600'}`}>
+                            {i + 1}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <div className="text-base font-black text-stone-900 leading-tight">{pesticideName}</div>
+                              {i === 0 && (
+                                <span className="text-[8px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded uppercase tracking-tighter">Best Value</span>
+                              )}
                               <button 
                                 onClick={() => speakText(`${pesticideName}. ${reason || ''}. Dose: ${rec.dose_acre}`, `rec-${i}`)}
                                 className={`p-1 rounded-lg transition-all ${isPlaying === `rec-${i}` ? 'text-soil-800' : 'text-stone-300 hover:text-soil-800'}`}
@@ -223,8 +271,13 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                             </div>
                           </div>
                         </div>
-                        <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">
-                          {rec.legality || rec.legal_status || 'Approved'}
+                        <div className="flex flex-col items-end">
+                          <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase mb-1">
+                            {rec.legality || rec.legal_status || 'Approved'}
+                          </div>
+                          {costPerAcre && (
+                            <div className="text-sm font-black text-green-700">₹{costPerAcre}<span className="text-[8px] text-stone-400">/ACRE</span></div>
+                          )}
                         </div>
                       </div>
 
@@ -319,11 +372,6 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
                         {rec.available_at && (
                           <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase">
                             {t['res-local']}: {rec.available_at.split(',')[0]}
-                          </div>
-                        )}
-                        {rec.estimated_cost_per_acre_inr && (
-                          <div className="px-2 py-1 bg-stone-200 text-stone-600 rounded-lg text-[9px] font-black uppercase">
-                            {t['res-cost']}: ₹{rec.estimated_cost_per_acre_inr}/Acre
                           </div>
                         )}
                       </div>

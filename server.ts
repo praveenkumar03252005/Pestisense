@@ -16,39 +16,7 @@ dotenv.config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
-import { GoogleGenAI } from "@google/genai";
-
-// Lazy-initialize Gemini
-let genAI: any = null;
-function getAI() {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not set on the server.');
-    }
-    genAI = new GoogleGenAI({ apiKey });
-  }
-  return genAI;
-}
-
-const extractJson = (text: string) => {
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start !== -1 && end !== -1 && end > start) {
-      const jsonContent = text.substring(start, end + 1);
-      try {
-        return JSON.parse(jsonContent);
-      } catch (innerE) {
-        throw e;
-      }
-    }
-    throw e;
-  }
-};
-
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for images
 
@@ -485,109 +453,7 @@ async function startServer() {
     }
   });
 
-  // --- GEMINI ROUTES ---
-  app.post('/api/gemini/chat', async (req, res) => {
-    try {
-      const { messages, lang } = req.body;
-      const ai = getAI();
-
-      const systemPrompt = `
-        You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
-        Answer the farmer's questions in ${lang === 'te' ? 'Telugu' : 'English'}. 
-        Provide scientific, practical, and safe advice. 
-        If recommending pesticides, strictly mention that they should be CIBRC (Central Insecticides Board & Registration Committee) approved. 
-      `;
-
-      const contents = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-        ...(messages || []).map((m: any) => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text || '' }]
-        }))
-      ];
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents
-      });
-      res.json({ text: result.text || '' });
-    } catch (err: any) {
-      console.error('Gemini Chat Error:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/gemini/identify-pesticide', async (req, res) => {
-    try {
-      let { image, mimeType } = req.body;
-      const ai = getAI();
-
-      if (image && image.includes(',')) image = image.split(',')[1];
-
-      const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
-      Extract these specific fields: 1. Product Name, 2. Active Ingredient, 3. Formulation, 4. Usage for Tomato crops, 5. Safety Warning.
-      Respond STRICTLY in JSON format. Use this schema: { "name": "string", "active": "string", "form": "string", "usage": "string", "warning": "string" }`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { data: image, mimeType } }
-          ]
-        }],
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
-      const text = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      res.json(extractJson(text));
-    } catch (err: any) {
-      console.error('Gemini ID Error:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/gemini/analyze-leaf', async (req, res) => {
-    try {
-      let { image, mimeType, location, growthStage } = req.body;
-      const ai = getAI();
-
-      if (image && image.includes(',')) image = image.split(',')[1];
-
-      const prompt = `You are an expert plant pathologist for tomatoes in Madanapalle.
-      Analyze this image of a tomato leaf. Location: ${location}, Stage: ${growthStage}.
-      Provide a JSON response with:
-      1. is_tomato (boolean)
-      2. identified_as (string)
-      3. disease (object with "en" and "te" keys)
-      4. severity ("Low", "Medium", or "High")
-      5. confidence (number between 0 and 1)
-      6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L", "steps" (object with en/te arrays))
-      7. sprayTiming (object with "en" and "te" keys)
-      Respond ONLY with JSON.`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { data: image, mimeType } }
-          ]
-        }],
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
-      const text = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      res.json(extractJson(text));
-    } catch (err: any) {
-      console.error('Gemini Analyze Error:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // History
 
   // --- VITE MIDDLEWARE / STATIC FILES ---
 
@@ -633,54 +499,55 @@ async function startServer() {
 async function seedReviews(db: any) {
   try {
     const count = await db.collection('reviews').countDocuments();
-    if (count > 0) return;
+    if (count > 20) return; // Already seeded
 
-    console.log('Seeding initial farmer reviews...');
+    console.log('Seeding extensive farmer reviews...');
     const dummyReviews = [
-      {
-        pesticide_id: 'mancozeb',
-        pesticide_name: 'Mancozeb 75% WP',
-        reviewer_name: 'Ramesh Reddy',
-        reviewer_village: 'Madanapalle',
-        rating: 5,
-        review_text: 'Used this for Early Blight on my tomatoes. Worked perfectly in 5 days. Madanapalle weather currently favors this.',
-        cured: true,
-        created_at: new Date()
-      },
-      {
-        pesticide_id: 'carbendazim',
-        pesticide_name: 'Carbendazim 50% WP',
-        reviewer_name: 'Anjali P.',
-        reviewer_village: 'Punganur',
-        rating: 4,
-        review_text: 'Good for preventing wilting. Spread it early morning as per PestiSense advice.',
-        cured: true,
-        created_at: new Date()
-      },
-      {
-        pesticide_id: 'copper',
-        pesticide_name: 'Copper Oxychloride',
-        reviewer_name: 'Gopal K.',
-        reviewer_village: 'Kurabalakota',
-        rating: 3,
-        review_text: 'Found it slightly expensive but fixed the bacterial spot issue in my field.',
-        cured: true,
-        created_at: new Date()
-      },
-      {
-        pesticide_id: 'mancozeb',
-        pesticide_name: 'Mancozeb 75% WP',
-        reviewer_name: 'Suresh B.',
-        reviewer_village: 'Vayalpad',
-        rating: 5,
-        review_text: 'Excellent result. The spray schedule suggested here saved my crop from sudden rain damage.',
-        cured: true,
-        created_at: new Date()
-      }
+      // Mancozeb reviews
+      { pesticide_id: 'mancozeb', pesticide_name: 'Mancozeb 75% WP', reviewer_name: 'Ramesh Reddy', reviewer_village: 'Madanapalle', rating: 5, review_text: 'Used this for Early Blight on my tomatoes. Worked perfectly in 5 days. Madanapalle weather currently favors this.', cured: true, created_at: new Date() },
+      { pesticide_id: 'mancozeb', pesticide_name: 'Mancozeb 75% WP', reviewer_name: 'Suresh B.', reviewer_village: 'Vayalpadu', rating: 5, review_text: 'Excellent result. The spray schedule suggested here saved my crop from sudden rain damage.', cured: true, created_at: new Date() },
+      { pesticide_id: 'mancozeb', pesticide_name: 'Mancozeb 75% WP', reviewer_name: 'Krishna M.', reviewer_village: 'Punganur', rating: 4, review_text: 'Regular use keeps the crop healthy. Effective against leaf spot too.', cured: true, created_at: new Date() },
+      
+      // Carbendazim reviews
+      { pesticide_id: 'carbendazim', pesticide_name: 'Carbendazim 50% WP', reviewer_name: 'Anjali P.', reviewer_village: 'Punganur', rating: 4, review_text: 'Good for preventing wilting. Spread it early morning as per PestiSense advice.', cured: true, created_at: new Date() },
+      { pesticide_id: 'carbendazim', pesticide_name: 'Carbendazim 50% WP', reviewer_name: 'Reddy Vari', reviewer_village: 'Mulakala Cheruvu', rating: 5, review_text: 'Systemic action is great. Even if it rains after 2 hours, it works.', cured: true, created_at: new Date() },
+      
+      // Amistar reviews
+      { pesticide_id: 'amistar', pesticide_name: 'Amistar (Azoxystrobin)', reviewer_name: 'Narayana Swamy', reviewer_village: 'Chittoor', rating: 5, review_text: 'Best for late blight during heavy rains. Costly but worth every paisa.', cured: true, created_at: new Date() },
+      { pesticide_id: 'amistar', pesticide_name: 'Amistar (Azoxystrobin)', reviewer_name: 'Praveen K.', reviewer_village: 'Rayachoti', rating: 5, review_text: 'Quickly stopped the spreading of blight. The leaf coverage was excellent.', cured: true, created_at: new Date() },
+      { pesticide_id: 'amistar', pesticide_name: 'Amistar (Azoxystrobin)', reviewer_name: 'Venkat Rao', reviewer_village: 'Madanapalle', rating: 4, review_text: 'Gives a very good green boost to the plants while fighting disease.', cured: true, created_at: new Date() },
+      
+      // Coragen reviews
+      { pesticide_id: 'coragen', pesticide_name: 'Coragen', reviewer_name: 'Bhaskar Reddy', reviewer_village: 'Pileru', rating: 5, review_text: 'Saved my crop from fruit borer. Applied exactly as the AI suggested.', cured: true, created_at: new Date() },
+      { pesticide_id: 'coragen', pesticide_name: 'Coragen', reviewer_name: 'Siva G.', reviewer_village: 'Kalikiri', rating: 5, review_text: 'Highly effective against larvae. One spray lasted for 15 days.', cured: true, created_at: new Date() },
+      { pesticide_id: 'coragen', pesticide_name: 'Coragen', reviewer_name: 'Lokesh', reviewer_village: 'Nimmanapalle', rating: 4, review_text: 'Fruit quality improved significantly after controlling the borer.', cured: true, created_at: new Date() },
+
+      // Saaf reviews
+      { pesticide_id: 'saaf', pesticide_name: 'UPL Saaf', reviewer_name: 'Mohan Babu', reviewer_village: 'Kurabala Kota', rating: 5, review_text: 'Dual action is perfect for rainy season. Prevention is better than cure.', cured: true, created_at: new Date() },
+      { pesticide_id: 'saaf', pesticide_name: 'UPL Saaf', reviewer_name: 'Savitrama', reviewer_village: 'B.Kothakota', rating: 4, review_text: 'Standard product for tomato farmers here. Good results every time.', cured: true, created_at: new Date() },
+      
+      // Confidor reviews
+      { pesticide_id: 'confidor', pesticide_name: 'Confidor', reviewer_name: 'Chiranjeevi', reviewer_village: 'Valmikipuram', rating: 5, review_text: 'Whitefly problem was solved in 3 days. Very effective for sucking pests.', cured: true, created_at: new Date() },
+      { pesticide_id: 'confidor', pesticide_name: 'Confidor', reviewer_name: 'Mahesh Reddy', reviewer_village: 'Ramasamudram', rating: 4, review_text: 'Helped reduce the virus spread by controlling the vectors.', cured: true, created_at: new Date() },
+      
+      // Ridomil reviews
+      { pesticide_id: 'ridomil', pesticide_name: 'Ridomil Gold', reviewer_name: 'Sekhar', reviewer_village: 'Pedda Mandyam', rating: 5, review_text: 'Late blight specialist. If you see spots, go for Ridomil immediately.', cured: true, created_at: new Date() },
+      { pesticide_id: 'ridomil', pesticide_name: 'Ridomil Gold', reviewer_name: 'Babu', reviewer_village: 'Thamballapalle', rating: 5, review_text: 'Recovered 80% of my damaged field with this. Incredible systemic action.', cured: true, created_at: new Date() },
+      
+      // Actara reviews
+      { pesticide_id: 'actara', pesticide_name: 'Actara', reviewer_name: 'Nagesh', reviewer_village: 'Madanapalle', rating: 5, review_text: 'Small quantity but big impact. Aphids disappeared after one spray.', cured: true, created_at: new Date() },
+      
+      // Blitox reviews
+      { pesticide_id: 'copper', pesticide_name: 'Copper Oxychloride (Blitox)', reviewer_name: 'Gopal K.', reviewer_village: 'Kurabala Kota', rating: 3, review_text: 'Found it slightly expensive but fixed the bacterial spot issue in my field.', cured: true, created_at: new Date() },
+      { pesticide_id: 'copper', pesticide_name: 'Copper Oxychloride (Blitox)', reviewer_name: 'Ramu', reviewer_village: 'Galiveedu', rating: 4, review_text: 'Excellent for rainy days when bacterial diseases spread fast.', cured: true, created_at: new Date() }
     ];
 
+    if (count > 0) {
+      // Clear and re-seed to ensure variety if requested
+      await db.collection('reviews').deleteMany({});
+    }
     await db.collection('reviews').insertMany(dummyReviews);
-    console.log('Seeded 4 reviews successfully.');
+    console.log(`Seeded ${dummyReviews.length} reviews successfully.`);
   } catch (err) {
     console.warn('Review seeding failed (non-critical):', err);
   }

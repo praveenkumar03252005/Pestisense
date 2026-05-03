@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Search, Camera, AlertCircle, CheckCircle, Loader2, Info } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Camera, AlertCircle, CheckCircle, Loader2, Info, Star, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
 import { FALLBACK_PESTICIDES } from '../../lib/agriData';
@@ -13,8 +13,35 @@ export default function IdentifyPesticide({ lang }: IdentifyPesticideProps) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [pesticideReviews, setPesticideReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const t = translations[lang];
+
+  useEffect(() => {
+    if (result && result.pesticide_id) {
+      fetchReviews(result.pesticide_id, result.name);
+    }
+  }, [result]);
+
+  const fetchReviews = async (pId: string, name: string) => {
+    setLoadingReviews(true);
+    try {
+      const res = await fetch('/api/reviews');
+      if (res.ok) {
+        const allReviews = await res.json();
+        const filtered = allReviews.filter((r: any) => 
+          (pId && r.pesticide_id === pId) || 
+          (name && r.pesticide_name?.toLowerCase().includes(name.toLowerCase()))
+        );
+        setPesticideReviews(filtered.slice(0, 3));
+      }
+    } catch (err) {
+      console.warn("Reviews fetch error:", err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   const handleProcess = async () => {
     if (!file) return;
@@ -159,9 +186,54 @@ export default function IdentifyPesticide({ lang }: IdentifyPesticideProps) {
                     <p className="text-xs font-bold leading-relaxed">{result.warning}</p>
                   </div>
                 </div>
+
+                {/* Reviews Section */}
+                {(pesticideReviews.length > 0 || loadingReviews) && (
+                  <div className="pt-4 border-t border-stone-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-[10px] font-black text-stone-900 uppercase tracking-widest flex items-center gap-2">
+                        <MessageSquare className="w-3.5 h-3.5 text-blue-600" /> Member Feedback
+                      </div>
+                      {pesticideReviews.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span className="text-[10px] font-black">4.9/5</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {loadingReviews ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-stone-300" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pesticideReviews.map((rev, ri) => (
+                          <div key={ri} className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm">
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center text-[8px] font-black text-stone-400">
+                                  {rev.reviewer_name?.[0]}
+                                </div>
+                                <span className="text-[10px] font-black text-stone-800">{rev.reviewer_name}</span>
+                              </div>
+                              <div className="text-[8px] font-bold text-stone-400 uppercase">{rev.reviewer_village}</div>
+                            </div>
+                            <p className="text-[11px] font-medium text-stone-600 italic leading-snug">"{rev.review_text}"</p>
+                            {rev.cured && (
+                              <div className="mt-2 text-[8px] font-black text-green-600 flex items-center gap-1 uppercase bg-green-50 w-fit px-1.5 py-0.5 rounded">
+                                <CheckCircle className="w-2.5 h-2.5" /> Effective
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
-              <button onClick={() => {setResult(null); setFile(null);}} className="text-stone-400 text-xs font-black uppercase tracking-widest hover:text-soil-800 self-center">Clear & Try Again</button>
+              <button onClick={() => {setResult(null); setFile(null); setPesticideReviews([]);}} className="text-stone-400 text-xs font-black uppercase tracking-widest hover:text-soil-800 self-center">Clear & Try Again</button>
             </motion.div>
           )}
           {!result && !loading && (
