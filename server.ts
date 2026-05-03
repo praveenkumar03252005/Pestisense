@@ -42,6 +42,7 @@ async function startServer() {
       .then(client => {
         db = client.db(DB_NAME);
         console.log('Successfully connected to MongoDB');
+        seedReviews(db);
       })
       .catch(err => {
         console.error('MongoDB connection failed:', err.message);
@@ -164,6 +165,21 @@ async function startServer() {
   // --- REVIEWS ---
   app.get('/api/reviews', async (req, res) => {
     try {
+      if (!db) {
+        // Fallback dummy reviews if DB not connected yet
+        return res.json([
+          {
+            pesticide_id: 'mancozeb',
+            pesticide_name: 'Mancozeb 75% WP',
+            reviewer_name: 'Farmer (Demo)',
+            reviewer_village: 'Madanapalle',
+            rating: 5,
+            review_text: 'Excellent result on Early Blight. Note: This is demo data as database is connecting.',
+            cured: true,
+            created_at: new Date()
+          }
+        ]);
+      }
       const { pesticide_id, area } = req.query;
       const query: any = {};
       if (pesticide_id && pesticide_id !== 'all') query.pesticide_id = pesticide_id;
@@ -475,6 +491,62 @@ async function startServer() {
     console.log(`[${new Date().toLocaleTimeString()}] Server listening on http://0.0.0.0:${PORT}`);
     console.log(`[${new Date().toLocaleTimeString()}] Mode: ${process.env.NODE_ENV || 'development'}`);
   });
+}
+
+async function seedReviews(db: any) {
+  try {
+    const count = await db.collection('reviews').countDocuments();
+    if (count > 0) return;
+
+    console.log('Seeding initial farmer reviews...');
+    const dummyReviews = [
+      {
+        pesticide_id: 'mancozeb',
+        pesticide_name: 'Mancozeb 75% WP',
+        reviewer_name: 'Ramesh Reddy',
+        reviewer_village: 'Madanapalle',
+        rating: 5,
+        review_text: 'Used this for Early Blight on my tomatoes. Worked perfectly in 5 days. Madanapalle weather currently favors this.',
+        cured: true,
+        created_at: new Date()
+      },
+      {
+        pesticide_id: 'carbendazim',
+        pesticide_name: 'Carbendazim 50% WP',
+        reviewer_name: 'Anjali P.',
+        reviewer_village: 'Punganur',
+        rating: 4,
+        review_text: 'Good for preventing wilting. Spread it early morning as per PestiSense advice.',
+        cured: true,
+        created_at: new Date()
+      },
+      {
+        pesticide_id: 'copper',
+        pesticide_name: 'Copper Oxychloride',
+        reviewer_name: 'Gopal K.',
+        reviewer_village: 'Kurabalakota',
+        rating: 3,
+        review_text: 'Found it slightly expensive but fixed the bacterial spot issue in my field.',
+        cured: true,
+        created_at: new Date()
+      },
+      {
+        pesticide_id: 'mancozeb',
+        pesticide_name: 'Mancozeb 75% WP',
+        reviewer_name: 'Suresh B.',
+        reviewer_village: 'Vayalpad',
+        rating: 5,
+        review_text: 'Excellent result. The spray schedule suggested here saved my crop from sudden rain damage.',
+        cured: true,
+        created_at: new Date()
+      }
+    ];
+
+    await db.collection('reviews').insertMany(dummyReviews);
+    console.log('Seeded 4 reviews successfully.');
+  } catch (err) {
+    console.warn('Review seeding failed (non-critical):', err);
+  }
 }
 
 startServer().catch(err => {

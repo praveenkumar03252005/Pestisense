@@ -1,5 +1,5 @@
 import React from 'react';
-import { Leaf, LogOut, User as UserIcon } from 'lucide-react';
+import { Leaf, LogOut, User as UserIcon, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
   user: any;
@@ -18,10 +18,10 @@ export default function Header({ user, lang, setLang, onLogout, onHistory, activ
           <div className="bg-green-600 p-1.5 rounded-lg shadow-sm">
             <Leaf className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-gray-800">
+          <span className="text-xl font-bold tracking-tight text-gray-800 hidden sm:inline">
             Pesti<span className="text-green-600">Sense</span>
           </span>
-          <div className="ml-4 flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
+          <div className="ml-2 sm:ml-4 flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
             <button 
               onClick={() => setLang('te')}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${lang === 'te' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}
@@ -37,7 +37,20 @@ export default function Header({ user, lang, setLang, onLogout, onHistory, activ
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <button 
+            onClick={() => {
+              const el = document.getElementById('how-to-guide');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              // Also open chatbot help if it exists
+              (window as any).AIChatHelp?.();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-all border border-blue-100"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{lang === 'te' ? 'సహాయం' : 'GUIDE'}</span>
+          </button>
+
           {user ? (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end hidden sm:flex">

@@ -66,7 +66,18 @@ export const translations: any = {
     "cat-all": "అన్ని మందులు",
     "cat-fungicide": "శిలీంద్ర సంహారిణి",
     "cat-insecticide": "పురుగుల మందు",
-    "cat-bactericide": "బాక్టీరియా సంహారిణి"
+    "cat-bactericide": "బాక్టీరియా సంహారిణి",
+    "how-to-title": "పెస్టిసెన్స్ ఎలా ఉపయోగించాలి?",
+    "how-to-s1": "1. పెరుగుదల దశను ఎంచుకోండి",
+    "how-to-s1-desc": "మీ టమోటా మొక్క వయస్సును ఖచ్చితంగా ఎంచుకోండి.",
+    "how-to-s2": "2. నేల ఆరోగ్య కార్డు (ఐచ్ఛికం)",
+    "how-to-s2-desc": "పోషకాహార సలహా కోసం నేల రిపోర్టు ఫోటో అప్‌లోడ్ చేయండి.",
+    "how-to-s3": "3. మీ గ్రామం పేరు",
+    "how-to-s3-desc": "స్థానిక వాతావరణం మరియు హాట్‌స్పాట్‌ల కోసం గ్రామం నమోదు చేయండి.",
+    "how-to-s4": "4. ఆకు ఫోటో",
+    "how-to-s4-desc": "వ్యాధి సోకిన ఆకు యొక్క స్పష్టమైన ఫోటోను తీయండి.",
+    "how-to-s5": "5. విశ్లేషణ",
+    "how-to-s5-desc": "AI ఉత్తమమైన, చౌకైన మందులను సిఫార్సు చేస్తుంది."
   },
   en: {
     "badge": "Madanapalle Tomato Belt",
@@ -135,6 +146,17 @@ export const translations: any = {
     "cat-all": "All Products",
     "cat-fungicide": "Fungicide",
     "cat-insecticide": "Insecticide",
-    "cat-bactericide": "Bactericide"
+    "cat-bactericide": "Bactericide",
+    "how-to-title": "How to use PestiSense?",
+    "how-to-s1": "1. Select Growth Stage",
+    "how-to-s1-desc": "Accurately tell us the age of your tomato crop.",
+    "how-to-s2": "2. Soil Health Card (Optional)",
+    "how-to-s2-desc": "Upload soil report for customized nutrient advice.",
+    "how-to-s3": "3. Your Village Name",
+    "how-to-s3-desc": "Enter village for local weather and disease alerts.",
+    "how-to-s4": "4. Capture Leaf Photo",
+    "how-to-s4-desc": "Take a clear photo of the biggest infected leaf.",
+    "how-to-s5": "5. Analysis",
+    "how-to-s5-desc": "AI identifies disease & ranks cheapest pesticides."
   }
 };

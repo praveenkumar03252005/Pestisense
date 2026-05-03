@@ -3,6 +3,7 @@ import { Camera, MapPin, Stethoscope, FlaskConical, CheckCircle, Loader2, Info, 
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../../lib/translations';
 import { analyzeLeaf } from '../../services/geminiService';
+import HowToUse from './HowToUse';
 
 const ANALYSIS_STEPS = [
   { icon: Camera, en: "Uploading high-resolution image...", te: "చిత్రం అప్‌లోడ్ అవుతోంది..." },
@@ -147,6 +148,9 @@ export default function Analysis({ lang, token, onResult, onSoilReport }: Analys
 
   return (
     <div className="space-y-8">
+      {/* How to Use Guide */}
+      <HowToUse lang={lang} />
+
       {/* Knowledge Banner */}
       <div className="bg-gradient-to-r from-green-farm to-green-800 rounded-3xl p-6 text-white shadow-lg overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-x-1/2 -translate-y-1/2"></div>

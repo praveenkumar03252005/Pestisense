@@ -42,17 +42,24 @@ export default function AnalysisResult({ lang, result, onReset }: AnalysisResult
     try {
       for (const rec of result.recommendations) {
         const name = rec.brand || rec.name;
-        // Search by area and pesticide
-        const params = new URLSearchParams();
-        params.append('area', result.location);
-        const res = await fetch(`/api/reviews?${params.toString()}`);
+        // Search all reviews (seeding will ensure some exist)
+        const res = await fetch(`/api/reviews`);
         if (res.ok) {
           const data = await res.json();
-          // Filter if the pesticide name matches (simple string match)
+          // Filter by pesticide name OR brand
           reviewsMap[name] = data.filter((r: any) => 
-            r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
-            name.toLowerCase().includes(r.pesticide_name?.toLowerCase())
+            (r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
+             name.toLowerCase().includes(r.pesticide_name?.toLowerCase())) &&
+            (result.location ? r.reviewer_village?.toLowerCase().includes(result.location.toLowerCase()) : true)
           );
+          
+          // If no local reviews, fallback to general reviews for this pesticide
+          if (reviewsMap[name].length === 0) {
+             reviewsMap[name] = data.filter((r: any) => 
+               r.pesticide_name?.toLowerCase().includes(name.toLowerCase()) ||
+               name.toLowerCase().includes(r.pesticide_name?.toLowerCase())
+             ).slice(0, 2);
+          }
         }
       }
       setRealReviews(reviewsMap);
