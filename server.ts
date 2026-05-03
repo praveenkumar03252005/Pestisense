@@ -16,6 +16,39 @@ dotenv.config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+import { GoogleGenAI } from "@google/genai";
+
+// Lazy-initialize Gemini
+let genAI: any = null;
+function getAI() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not set on the server.');
+    }
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
+
+const extractJson = (text: string) => {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonContent = text.substring(start, end + 1);
+      try {
+        return JSON.parse(jsonContent);
+      } catch (innerE) {
+        throw e;
+      }
+    }
+    throw e;
+  }
+};
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for images
 
@@ -448,6 +481,95 @@ async function startServer() {
 
       res.json(formatted);
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- GEMINI ROUTES ---
+  app.post('/api/gemini/chat', async (req, res) => {
+    try {
+      const { messages, lang } = req.body;
+      const ai = getAI();
+      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const systemPrompt = `
+        You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
+        Answer the farmer's questions in ${lang === 'te' ? 'Telugu' : 'English'}. 
+        Provide scientific, practical, and safe advice. 
+        If recommending pesticides, strictly mention that they should be CIBRC (Central Insecticides Board & Registration Committee) approved. 
+      `;
+
+      const contents = [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        ...(messages || []).map((m: any) => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text || '' }]
+        }))
+      ];
+
+      const result = await model.generateContent({ contents });
+      const response = await result.response;
+      res.json({ text: response.text() });
+    } catch (err: any) {
+      console.error('Gemini Chat Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/gemini/identify-pesticide', async (req, res) => {
+    try {
+      let { image, mimeType } = req.body;
+      const ai = getAI();
+      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      if (image && image.includes(',')) image = image.split(',')[1];
+
+      const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
+      Extract these specific fields: 1. Product Name, 2. Active Ingredient, 3. Formulation, 4. Usage for Tomato crops, 5. Safety Warning.
+      Respond STRICTLY in JSON format. Use this schema: { "name": "string", "active": "string", "form": "string", "usage": "string", "warning": "string" }`;
+
+      const result = await model.generateContent([
+        prompt,
+        { inlineData: { data: image, mimeType } }
+      ]);
+      const response = await result.response;
+      const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      res.json(extractJson(text));
+    } catch (err: any) {
+      console.error('Gemini ID Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/gemini/analyze-leaf', async (req, res) => {
+    try {
+      let { image, mimeType, location, growthStage } = req.body;
+      const ai = getAI();
+      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      if (image && image.includes(',')) image = image.split(',')[1];
+
+      const prompt = `You are an expert plant pathologist for tomatoes in Madanapalle.
+      Analyze this image of a tomato leaf. Location: ${location}, Stage: ${growthStage}.
+      Provide a JSON response with:
+      1. is_tomato (boolean)
+      2. identified_as (string)
+      3. disease (object with "en" and "te" keys)
+      4. severity ("Low", "Medium", or "High")
+      5. confidence (number between 0 and 1)
+      6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L", "steps" (object with en/te arrays))
+      7. sprayTiming (object with "en" and "te" keys)
+      Respond ONLY with JSON.`;
+
+      const result = await model.generateContent([
+        prompt,
+        { inlineData: { data: image, mimeType } }
+      ]);
+      const response = await result.response;
+      const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      res.json(extractJson(text));
+    } catch (err: any) {
+      console.error('Gemini Analyze Error:', err);
       res.status(500).json({ error: err.message });
     }
   });

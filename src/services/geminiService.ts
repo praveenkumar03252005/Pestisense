@@ -1,99 +1,21 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import axios from 'axios';
 
-// Initialization according to gemini-api skill
-const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set. Please provide it in AI Studio settings.');
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
-const extractJson = (text: string) => {
-  try {
-    // Try first-pass parse
-    return JSON.parse(text);
-  } catch (e) {
-    // If it fails, try to find the start and end of the first balanced JSON object
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start !== -1 && end !== -1 && end > start) {
-      const jsonContent = text.substring(start, end + 1);
-      try {
-        return JSON.parse(jsonContent);
-      } catch (innerE) {
-        console.error("Failed to parse extracted JSON:", innerE);
-        throw e; // throw original if extraction also fails
-      }
-    }
-    throw e;
-  }
-};
-
-export const geminiModel = "gemini-3-flash-preview";
+export const geminiModel = "gemini-1.5-flash";
 
 export async function chatWithGemini(messages: { role: 'user' | 'bot'; text: string }[], lang: 'te' | 'en') {
   try {
-    const ai = getAI();
-    
-    const systemPrompt = `
-      You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
-      Answer the farmer's questions in ${lang === 'te' ? 'Telugu' : 'English'}. 
-      Provide scientific, practical, and safe advice. 
-      The area is famous for the Madanapalle Tomato Market.
-      If recommending pesticides, strictly mention that they should be CIBRC (Central Insecticides Board & Registration Committee) approved. 
-      Keep answers concise, technical yet simple for a farmer.
-    `;
-
-    const contents = [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-      ...(messages || []).map((m: any) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text || '' }]
-      }))
-    ];
-
-    const response = await ai.models.generateContent({
-      model: geminiModel,
-      contents
-    });
-
-    return response.text || '';
+    const response = await axios.post('/api/gemini/chat', { messages, lang });
+    return response.data.text;
   } catch (err: any) {
     console.error("Gemini Chat Error:", err);
-    throw new Error(`Failed to communicate with AI advisor: ${err.message}`);
+    throw new Error(`Failed to communicate with AI advisor: ${err.response?.data?.error || err.message}`);
   }
 }
 
 export async function identifyPesticide(base64Image: string, mimeType: string) {
   try {
-    const ai = getAI();
-    let sanitizedImage = base64Image;
-    if (sanitizedImage.includes(',')) {
-      sanitizedImage = sanitizedImage.split(',')[1];
-    }
-
-    const prompt = `Identify this agricultural pesticide/fertilizer from the bottle/label shown. 
-    Extract these specific fields: 1. Product Name, 2. Active Ingredient, 3. Formulation, 4. Usage for Tomato crops, 5. Safety Warning.
-    Respond STRICTLY in JSON format. Use this schema: { "name": "string", "active": "string", "form": "string", "usage": "string", "warning": "string" }`;
-
-    const response = await ai.models.generateContent({
-      model: geminiModel,
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { data: sanitizedImage, mimeType } }
-        ]
-      }],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    let text = response.text || '{}';
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return extractJson(text);
+    const response = await axios.post('/api/gemini/identify-pesticide', { image: base64Image, mimeType });
+    return response.data;
   } catch (err: any) {
     console.error("Gemini Pesticide ID Error:", err);
     return { name: "Unknown", active: "Unknown", form: "Unknown", usage: "Unknown", warning: "Please consult an expert." };
@@ -102,54 +24,15 @@ export async function identifyPesticide(base64Image: string, mimeType: string) {
 
 export async function analyzeLeaf(base64Image: string, mimeType: string, location: string, growthStage: string) {
   try {
-    const ai = getAI();
-    let sanitizedImage = base64Image;
-    if (sanitizedImage.includes(',')) {
-      sanitizedImage = sanitizedImage.split(',')[1];
-    }
-
-    const prompt = `You are a high-end agricultural diagnostic tool for tomato farmers in Madanapalle. 
-    Analyze this image of a plant/leaf.
-    Location: ${location}, Stage: ${growthStage}.
-
-    Provide a JSON response with:
-    1. is_tomato (boolean)
-    2. identified_as (string)
-    3. disease (object with "en" and "te" keys)
-    4. severity ("Low", "Medium", or "High")
-    5. confidence (number between 0 and 1)
-    6. recommendations (array of objects with "brand", "activeIngredient", "reason" (object en/te), "dose_acre", "dose_15L", "steps" (array of strings in en/te))
-    7. sprayTiming (object with "en" and "te" keys)
-
-    The "steps" should be a 3-4 step procedure for how to apply that specific pesticide (e.g., mixing, safety, spray technique).
-
-    Respond ONLY with the JSON object.`;
-
-    const response = await ai.models.generateContent({
-      model: geminiModel,
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { data: sanitizedImage, mimeType } }
-        ]
-      }],
-      config: {
-        responseMimeType: "application/json"
-      }
+    const response = await axios.post('/api/gemini/analyze-leaf', { 
+      image: base64Image, 
+      mimeType, 
+      location, 
+      growthStage 
     });
-
-    let text = response.text || '{}';
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    try {
-      return extractJson(text);
-    } catch (parseErr) {
-      console.error("Gemini JSON Parse Error:", parseErr, "Text:", text);
-      throw new Error("Invalid response format from AI");
-    }
+    return response.data;
   } catch (err: any) {
     console.error("Gemini Leaf Analysis Error:", err);
-    throw new Error(`Analysis failed: ${err.message}`);
+    throw new Error(`Analysis failed: ${err.response?.data?.error || err.message}`);
   }
 }
