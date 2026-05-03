@@ -490,7 +490,6 @@ async function startServer() {
     try {
       const { messages, lang } = req.body;
       const ai = getAI();
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const systemPrompt = `
         You are PestiSense Agri AI, an expert agricultural advisor specializing in tomato cultivation in Madanapalle, Andhra Pradesh, India. 
@@ -507,9 +506,11 @@ async function startServer() {
         }))
       ];
 
-      const result = await model.generateContent({ contents });
-      const response = await result.response;
-      res.json({ text: response.text() });
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents
+      });
+      res.json({ text: result.text || '' });
     } catch (err: any) {
       console.error('Gemini Chat Error:', err);
       res.status(500).json({ error: err.message });
@@ -520,7 +521,6 @@ async function startServer() {
     try {
       let { image, mimeType } = req.body;
       const ai = getAI();
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       if (image && image.includes(',')) image = image.split(',')[1];
 
@@ -528,12 +528,20 @@ async function startServer() {
       Extract these specific fields: 1. Product Name, 2. Active Ingredient, 3. Formulation, 4. Usage for Tomato crops, 5. Safety Warning.
       Respond STRICTLY in JSON format. Use this schema: { "name": "string", "active": "string", "form": "string", "usage": "string", "warning": "string" }`;
 
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { data: image, mimeType } }
-      ]);
-      const response = await result.response;
-      const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { data: image, mimeType } }
+          ]
+        }],
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      const text = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
       res.json(extractJson(text));
     } catch (err: any) {
       console.error('Gemini ID Error:', err);
@@ -545,7 +553,6 @@ async function startServer() {
     try {
       let { image, mimeType, location, growthStage } = req.body;
       const ai = getAI();
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       if (image && image.includes(',')) image = image.split(',')[1];
 
@@ -561,12 +568,20 @@ async function startServer() {
       7. sprayTiming (object with "en" and "te" keys)
       Respond ONLY with JSON.`;
 
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { data: image, mimeType } }
-      ]);
-      const response = await result.response;
-      const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { data: image, mimeType } }
+          ]
+        }],
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      const text = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
       res.json(extractJson(text));
     } catch (err: any) {
       console.error('Gemini Analyze Error:', err);
